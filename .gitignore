@@ -1,0 +1,28 @@
+# Python build + cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.env/
+env/
+.venv/
+
+# IDE / Editor configs
+.idea/
+.vscode/
+.DS_Store
+
+# Logs / Outputs
+*.log
+logs/
+
+# Secrets
+apikeys.py
+.env
+
+# OS / Misc
+*.bak
+*.tmp
