@@ -1,6 +1,6 @@
 import time
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from apikeys import ODDS_API_KEY, ODDS_URL
 from constants import TEAM_MAP
 
@@ -43,23 +43,28 @@ def _find_team_spread(team_abbr, outcomes):
             return point
     return None
 
-
 def record_pre_game_spreads():
-    """Fetches all pregame spreads for *today's* games and stores them in _pregame_spreads."""
+    """Fetches all pregame spreads for today's NBA slate (5 PM–5 AM UTC window)."""
     global _pregame_spreads
     data = _fetch_odds_data(market_type="spreads")
     count = 0
+    summaries = []
 
-    today_str = (datetime.utcnow() + timedelta(days=1)).strftime("%Y-%m-%d")
+    # Define 17:00–05:00 UTC window
+    now = datetime.now(timezone.utc)
+    start_window = now.replace(hour=17, minute=0, second=0, microsecond=0)
+    if now.hour < 5:
+        start_window -= timedelta(days=1)
+    end_window = start_window + timedelta(hours=12)
 
     for game in data:
         commence_time = game.get("commence_time")
         if not commence_time:
             continue
 
-        game_date = commence_time[:10]
-        if game_date != today_str:
-            continue  # Only today's games
+        game_dt = datetime.fromisoformat(commence_time.replace("Z", "+00:00"))
+        if not (start_window <= game_dt <= end_window):
+            continue
 
         home = game.get("home_team")
         away = game.get("away_team")
@@ -78,12 +83,16 @@ def record_pre_game_spreads():
         home_spread = _find_team_spread(home_abbr, outcomes)
 
         if home_spread is not None:
+            msg = f"📊 {matchup}: {home_spread:+.1f}"
+            print(msg)
+            summaries.append(msg)
             _pregame_spreads[matchup] = home_spread
             count += 1
 
-    print(f"✅ Recorded {count} pregame spreads for today's games ({datetime.utcnow().strftime('%Y-%m-%d')}).")
-    return _pregame_spreads
-
+    summary_header = f"✅ Recorded {count} pregame spreads for {start_window:%Y-%m-%d}."
+    print(summary_header)
+    summaries.insert(0, summary_header)
+    return summaries
 
 def get_live_spread(matchup):
     """Returns the current home spread for the given matchup (e.g. 'LAL @ BOS')."""

@@ -29,12 +29,12 @@ def get_live_games():
 
 
 if __name__ == "__main__":
-    send_discord_alert("🚀 NBA Live Monitor Started", title="Startup 1/2")
     # Load top scorers + pregame spreads
     top_scorers = get_top_scorers()
-    record_pre_game_spreads()
+    pregame_summaries = record_pre_game_spreads()
     processed_games = set()
-    send_discord_alert("✅ Initialization complete", title="Startup 2/2")
+    formatted_msg = "\n".join(pregame_summaries)
+    send_discord_alert(formatted_msg, title="🚀 Pregame Alert")
 
     # Main monitoring loop
     while True:
