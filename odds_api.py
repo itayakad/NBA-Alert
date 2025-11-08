@@ -2,6 +2,7 @@ import time
 import requests
 from datetime import datetime, timedelta
 from apikeys import ODDS_API_KEY, ODDS_URL
+from constants import TEAM_MAP
 
 CACHE_TTL = 300  # seconds
 
@@ -34,13 +35,21 @@ def _fetch_odds_data(market_type="spreads"):
         return []
 
 
+def _find_team_spread(team_abbr, outcomes):
+    """Find spread value for an abbreviation by fuzzy matching full names."""
+    full_name = TEAM_MAP.get(team_abbr, team_abbr)
+    for name, point in outcomes.items():
+        if full_name.lower() in name.lower() or name.lower() in full_name.lower():
+            return point
+    return None
+
+
 def record_pre_game_spreads():
     """Fetches all pregame spreads for *today's* games and stores them in _pregame_spreads."""
     global _pregame_spreads
     data = _fetch_odds_data(market_type="spreads")
     count = 0
 
-    # Format today's date as 'YYYY-MM-DD'
     today_str = (datetime.utcnow() + timedelta(days=1)).strftime("%Y-%m-%d")
 
     for game in data:
@@ -48,10 +57,9 @@ def record_pre_game_spreads():
         if not commence_time:
             continue
 
-        # Extract the date portion only (first 10 characters)
         game_date = commence_time[:10]
         if game_date != today_str:
-            continue  # Skip games not scheduled for today
+            continue  # Only today's games
 
         home = game.get("home_team")
         away = game.get("away_team")
@@ -66,20 +74,28 @@ def record_pre_game_spreads():
             continue
 
         outcomes = {o["name"]: o.get("point") for o in market["outcomes"]}
-        home_spread = outcomes.get(home)
+        home_abbr = next((abbr for abbr, name in TEAM_MAP.items() if name == home), home)
+        home_spread = _find_team_spread(home_abbr, outcomes)
 
         if home_spread is not None:
             _pregame_spreads[matchup] = home_spread
             count += 1
 
-    print(f"✅ Recorded {count} pregame spreads for today's games ({(datetime.utcnow()).strftime("%Y-%m-%d")}).")
+    print(f"✅ Recorded {count} pregame spreads for today's games ({datetime.utcnow().strftime('%Y-%m-%d')}).")
     return _pregame_spreads
+
 
 def get_live_spread(matchup):
     """Returns the current home spread for the given matchup (e.g. 'LAL @ BOS')."""
     data = _fetch_odds_data(market_type="spreads")
+
+    # Parse matchup abbreviations and expand to full names
+    away_abbr, _, home_abbr = matchup.partition(" @ ")
+    full_home = TEAM_MAP.get(home_abbr, home_abbr)
+    full_away = TEAM_MAP.get(away_abbr, away_abbr)
+
     for game in data:
-        if f"{game['away_team']} @ {game['home_team']}" == matchup:
+        if full_home in (game["home_team"], game["away_team"]) or full_away in (game["home_team"], game["away_team"]):
             bookmakers = game.get("bookmakers", [])
             if not bookmakers:
                 continue
@@ -89,8 +105,8 @@ def get_live_spread(matchup):
                 continue
 
             outcomes = {o["name"]: o.get("point") for o in market["outcomes"]}
-            home = game.get("home_team")
-            return outcomes.get(home)
+            return _find_team_spread(home_abbr, outcomes)
+
     return None
 
 
