@@ -1,12 +1,22 @@
 import time
 from datetime import datetime
 from nba_api.live.nba.endpoints import scoreboard
-
+import os
+import logging
 from constants import HALFTIME_CHECK_INTERVAL
 from player_alerts import get_top_scorers, analyze_game_players
 from spread_alerts import analyze_spread_movement
 from odds_api import record_pre_game_spreads
 from discord_alert import send_discord_alert
+
+# --- Logging Setup ---
+os.makedirs("logs", exist_ok=True)
+log_filename = datetime.utcnow().strftime("logs/%Y-%m-%d.log")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(message)s",
+    handlers=[logging.FileHandler(log_filename, encoding="utf-8")]
+)
 
 def get_live_games():
     """Fetch current live games from the NBA scoreboard."""
@@ -56,6 +66,7 @@ if __name__ == "__main__":
                     if all_alerts:
                         alert_text = "\n".join(all_alerts)
                         send_discord_alert(alert_text, title=f"📊 {matchup} Halftime Alert")
+                        logging.info(f"Halftime Alerts for {matchup}:\n{alert_text}\n")
                     else:
                         send_discord_alert("❌ Nothing To Note", title=f"📊 {matchup} Halftime Alert")
 
