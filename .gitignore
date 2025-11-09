@@ -26,3 +26,6 @@ apikeys.py
 # OS / Misc
 *.bak
 *.tmp
+
+# Spread storage
+pregame_spreads.json

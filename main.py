@@ -1,13 +1,13 @@
 import time
 from datetime import datetime
-from nba_api.live.nba.endpoints import scoreboard
 import os
 import logging
+from odds_api import record_pre_game_spreads, get_pregame_spreads
 from constants import HALFTIME_CHECK_INTERVAL
 from player_alerts import get_top_scorers, analyze_game_players
 from spread_alerts import analyze_spread_movement
-from odds_api import record_pre_game_spreads
 from discord_alert import send_discord_alert
+from espn_api import iter_halftimes
 
 # --- Logging Setup ---
 os.makedirs("logs", exist_ok=True)
@@ -18,59 +18,78 @@ logging.basicConfig(
     handlers=[logging.FileHandler(log_filename, encoding="utf-8")]
 )
 
-def get_live_games():
-    """Fetch current live games from the NBA scoreboard."""
-    try:
-        sb = scoreboard.ScoreBoard()
-        return sb.games.get_dict()
-    except Exception as e:
-        print(f"⚠️ Error fetching scoreboard: {e}")
-        return []
-
-
 if __name__ == "__main__":
-    # Load top scorers + pregame spreads
-    top_scorers = get_top_scorers()
-    pregame_summaries = record_pre_game_spreads()
-    processed_games = set()
-    formatted_msg = "\n".join(pregame_summaries)
-    send_discord_alert(formatted_msg, title="🚀 Pregame Alert")
+    print("🚀 NBA Live Monitor Started")
+    print("Loading top scorers and pregame spreads...\n")
 
-    # Main monitoring loop
+    # ESPN-only: get_top_scorers no longer uses nba_api
+    top_scorers = get_top_scorers()
+
+    # Load previous day/today cached spreads first
+    pregame_spreads = get_pregame_spreads()
+
+    # Then attempt to fill in missing ones (but this will NOT overwrite old ones now)
+    record_pre_game_spreads()
+
+    # Refresh local copy after update
+    pregame_spreads = get_pregame_spreads()
+
+    if pregame_spreads:
+        lines = [
+            f"{matchup} ({spread:+.1f})"
+            for matchup, spread in pregame_spreads.items()
+            # Only include full names (abbr is always 3 letters)
+            if "@" in matchup and not matchup.split()[0].isupper()
+        ]
+        formatted_msg = "\n".join(lines)
+        send_discord_alert(formatted_msg, title="🚀 Pregame Spreads")
+    else:
+        send_discord_alert("⚠️ No pregame spreads found.", title="🚀 Pregame Spreads")
+
+    processed_games = set()
+
+    # ---------------- MAIN LOOP ---------------- #
     while True:
         try:
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] Checking game updates...")
-            games = get_live_games()
-            print(f"Found {len(games)} live games.")
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] Checking halftimes...")
 
-            for g in games:
-                game_id = g["gameId"]
-                status = g["gameStatusText"]
-                matchup = f"{g['awayTeam']['teamTricode']} @ {g['homeTeam']['teamTricode']}"
-                home_score = g["homeTeam"]["score"]
-                away_score = g["awayTeam"]["score"]
+            halftimes = iter_halftimes()
 
-                # Detect new halftimes
-                print(f"Game {matchup} Status: {status}")
-                if "Halftime" in status and game_id not in processed_games:
-                    processed_games.add(game_id)
+            for g in halftimes:
+                matchup = g["matchup"]           # e.g., "DAL @ WSH"
+                event_id = g["game_id"]          # ESPN event ID (used by ESPN summary API)
+                home_score = g["home_score"]
+                away_score = g["away_score"]
 
-                    # --- Player Alerts ---
-                    player_alerts = analyze_game_players(
-                        game_id, matchup, top_scorers, home_score, away_score
-                    )
+                # Skip if already processed
+                if event_id in processed_games:
+                    continue
 
-                    # --- Spread Alerts ---
-                    spread_alerts = analyze_spread_movement(game_id, matchup)
+                print(f"⏱️ Halftime detected: {matchup}")
+                print(f"   Scores — {away_score}-{home_score}")
 
-                    # --- Combine + Output ---
-                    all_alerts = player_alerts + spread_alerts
-                    if all_alerts:
-                        alert_text = "\n".join(all_alerts)
-                        send_discord_alert(alert_text, title=f"📊 {matchup} Halftime Alert")
-                        logging.info(f"Halftime Alerts for {matchup}:\n{alert_text}\n")
-                    else:
-                        send_discord_alert("❌ Nothing To Note", title=f"📊 {matchup} Halftime Alert")
+                processed_games.add(event_id)
+
+                # Player Alerts
+                player_alerts = analyze_game_players(
+                    event_id,      # ESPN event ID for summary endpoint
+                    matchup,
+                    top_scorers,   # may be empty if ESPN leaders unavailable; logic handles it
+                    home_score,
+                    away_score
+                )
+
+                # Spread Alerts
+                spread_alerts = analyze_spread_movement(event_id, matchup)
+
+                # Combined Alerts
+                all_alerts = player_alerts + spread_alerts
+                if all_alerts:
+                    alert_text = "\n".join(all_alerts)
+                    send_discord_alert(alert_text, title=f"📊 {matchup} Halftime")
+                    logging.info(f"Halftime Alerts for {matchup}:\n{alert_text}\n")
+                else:
+                    send_discord_alert("❌ Nothing notable.", title=f"📊 {matchup} Halftime")
 
         except Exception as e:
             print(f"❌ Error in main loop: {e}")

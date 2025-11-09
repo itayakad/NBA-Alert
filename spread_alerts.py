@@ -5,38 +5,62 @@ from odds_api import (
     is_game_processed,
     mark_game_processed,
 )
+from constants import TEAM_MAP
+
+# Reverse mapping to convert full name -> abbr
+REV_TEAM_MAP = {v: k for k, v in TEAM_MAP.items()}
+
+
+def _canonical_keys(matchup: str):
+    """
+    Given 'LAL @ BOS', return:
+        - full name key  ('Los Angeles Lakers @ Boston Celtics')
+        - abbr key       ('LAL @ BOS')
+    This ensures we can always match stored spreads.
+    """
+    away_abbr, _, home_abbr = matchup.partition(" @ ")
+    full_away = TEAM_MAP.get(away_abbr, away_abbr)
+    full_home = TEAM_MAP.get(home_abbr, home_abbr)
+    
+    full_key = f"{full_away} @ {full_home}"
+    abbr_key = matchup  # already in ABBR form
+    return full_key, abbr_key
 
 
 def analyze_spread_movement(game_id, matchup):
     """
     Compare live spread vs pre-game spread.
     Trigger alert if the spread tightens, widens, or flips significantly.
-    Returns a list of alert messages (to be handled by main.py).
     """
     alerts = []
-    if is_game_processed(matchup):
-        return alerts
+
+    # Get the two possible keys
+    full_key, abbr_key = _canonical_keys(matchup)
 
     pre_spreads = get_pregame_spreads()
-    pre_spread = pre_spreads.get(matchup)
-    live_spread = get_live_spread(matchup)
+
+    # Try both lookup keys
+    pre_spread = (
+        pre_spreads.get(abbr_key)
+        or pre_spreads.get(full_key)
+    )
+
+    live_spread = get_live_spread(abbr_key)  # live always uses abbr
 
     if pre_spread is None or live_spread is None:
-        return alerts
+        return alerts  # no alert if no baseline
 
     delta = live_spread - pre_spread
     now = datetime.now().strftime("%H:%M:%S")
 
     flip = pre_spread < 0 and live_spread > 0
     significant = abs(delta) >= 3 or flip
+
     if significant:
-        trend = "tightened" if delta > 0 else "widened"
-        prefix = "🔥 MAJOR" if flip else "⚠️"
-        team_status = "Underdog Rally" if flip else "Spread Shift"
+        team_status = "🚨 UPSET WATCH" if flip else "⚠️ Spread Shift"
         alerts.append(
-            f"{prefix} {now} — {matchup}: {team_status} | Spread {trend} by {delta:+.1f} pts "
-            f"(Pre: {pre_spread:+.1f}, Live: {live_spread:+.1f})"
+            f"{team_status}: Spread changed by {delta:+.1f} pts (Pre: {pre_spread:+.1f}, Live: {live_spread:+.1f} {abbr_key[-3:]})"
         )
-        mark_game_processed(matchup)
+        mark_game_processed(abbr_key)
 
     return alerts

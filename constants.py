@@ -1,7 +1,7 @@
 # General runtime
 HALFTIME_CHECK_INTERVAL = 300   # seconds between scoreboard polls
 SEASON = "2025-26"
-TOP_SCORER_LIMIT = 25
+TOP_SCORER_LIMIT = 50
 
 # Thresholds
 PERCENT_UNDERPERFORMANCE_TRIGGER = 0.4   # 40% of average at halftime
@@ -34,7 +34,7 @@ TEAM_MAP = {
     "GSW": "Golden State Warriors",
     "HOU": "Houston Rockets",
     "IND": "Indiana Pacers",
-    "LAC": "LA Clippers",
+    "LAC": "Los Angeles Clippers",
     "LAL": "Los Angeles Lakers",
     "MEM": "Memphis Grizzlies",
     "MIA": "Miami Heat",
