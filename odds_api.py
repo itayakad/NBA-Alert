@@ -3,13 +3,41 @@ import requests
 from datetime import datetime, timedelta, timezone
 from apikeys import ODDS_API_KEY, ODDS_URL
 from constants import TEAM_MAP
+import json
+import os
 
+PREGAME_FILE = "pregame_spreads.json"
 CACHE_TTL = 300  # seconds
 
 _cache = {"timestamp": 0, "data": []}
 _pregame_spreads = {}
 _processed_games = set()
 
+REV_TEAM_MAP = {v: k for k, v in TEAM_MAP.items()}
+
+def _load_pregame_cache():
+    global _pregame_spreads
+    if os.path.exists(PREGAME_FILE):
+        try:
+            with open(PREGAME_FILE, "r") as f:
+                _pregame_spreads = json.load(f)
+                print("✅ Loaded pregame spreads from disk.")
+        except:
+            _pregame_spreads = {}
+
+def _save_pregame_cache():
+    try:
+        with open(PREGAME_FILE, "w") as f:
+            json.dump(_pregame_spreads, f, indent=2)
+        print("💾 Saved pregame spreads to disk.")
+    except Exception as e:
+        print(f"⚠️ Failed to save pregame spreads: {e}")
+
+def _abbr_key(away_name: str, home_name: str) -> str:
+    """Return canonical key 'AWY @ HOME' using abbreviations."""
+    away_abbr = REV_TEAM_MAP.get(away_name, away_name)
+    home_abbr = REV_TEAM_MAP.get(home_name, home_name)
+    return f"{away_abbr} @ {home_abbr}"
 
 def _fetch_odds_data(market_type="spreads"):
     """Fetch NBA odds data from The Odds API, with simple caching."""
@@ -34,23 +62,30 @@ def _fetch_odds_data(market_type="spreads"):
         print(f"⚠️ Error fetching odds: {e}")
         return []
 
-
+# Spread
 def _find_team_spread(team_abbr, outcomes):
-    """Find spread value for an abbreviation by fuzzy matching full names."""
+    """Find spread value by matching full team names."""
     full_name = TEAM_MAP.get(team_abbr, team_abbr)
+
     for name, point in outcomes.items():
         if full_name.lower() in name.lower() or name.lower() in full_name.lower():
             return point
     return None
 
 def record_pre_game_spreads():
-    """Fetches all pregame spreads for today's NBA slate (5 PM–5 AM UTC window)."""
+    """
+    Fetch all pregame spreads for today's NBA slate.
+    Store spreads under BOTH:
+        - Full key: 'Los Angeles Lakers @ Boston Celtics'
+        - ABBR key: 'LAL @ BOS'
+    So downstream lookups ALWAYS succeed.
+    """
     global _pregame_spreads
+    _load_pregame_cache()
+
     data = _fetch_odds_data(market_type="spreads")
     count = 0
-    summaries = []
 
-    # Define 17:00–05:00 UTC window
     now = datetime.now(timezone.utc)
     start_window = now.replace(hour=17, minute=0, second=0, microsecond=0)
     if now.hour < 5:
@@ -68,7 +103,11 @@ def record_pre_game_spreads():
 
         home = game.get("home_team")
         away = game.get("away_team")
-        matchup = f"{away} @ {home}"
+        if not home or not away:
+            continue
+
+        full_key = f"{away} @ {home}"
+        abbr_key = _abbr_key(away, home)
 
         bookmakers = game.get("bookmakers", [])
         if not bookmakers:
@@ -79,32 +118,50 @@ def record_pre_game_spreads():
             continue
 
         outcomes = {o["name"]: o.get("point") for o in market["outcomes"]}
-        home_abbr = next((abbr for abbr, name in TEAM_MAP.items() if name == home), home)
+
+        home_abbr = REV_TEAM_MAP.get(home, home)
         home_spread = _find_team_spread(home_abbr, outcomes)
 
         if home_spread is not None:
-            msg = f"📊 {matchup}: {home_spread:+.1f}"
-            print(msg)
-            summaries.append(msg)
-            _pregame_spreads[matchup] = home_spread
+
+            # ✅ If already stored (from before tipoff), DO NOT overwrite.
+            if abbr_key in _pregame_spreads or full_key in _pregame_spreads:
+                # Stored value = real pregame spread → keep it
+                print(f"✅ Already stored pregame spread for {abbr_key}, skipping overwrite.")
+                continue
+
+            print(f"📊 PRE-GAME LOCKED: {full_key} ({home_spread:+.1f})")
+
+            _pregame_spreads[abbr_key] = home_spread
+            _pregame_spreads[full_key] = home_spread
+
             count += 1
 
-    summary_header = f"✅ Recorded {count} pregame spreads for {start_window:%Y-%m-%d}."
-    print(summary_header)
-    summaries.insert(0, summary_header)
-    return summaries
+    print(f"✅ Recorded {count} pregame spreads for {start_window:%Y-%m-%d}.")
+    _save_pregame_cache()
+    return _pregame_spreads
 
+# Live
 def get_live_spread(matchup):
-    """Returns the current home spread for the given matchup (e.g. 'LAL @ BOS')."""
+    """
+    matchup is always 'AWY @ HOME' (abbreviations).
+    Convert to full names before searching.
+    """
     data = _fetch_odds_data(market_type="spreads")
 
-    # Parse matchup abbreviations and expand to full names
     away_abbr, _, home_abbr = matchup.partition(" @ ")
     full_home = TEAM_MAP.get(home_abbr, home_abbr)
     full_away = TEAM_MAP.get(away_abbr, away_abbr)
 
     for game in data:
-        if full_home in (game["home_team"], game["away_team"]) or full_away in (game["home_team"], game["away_team"]):
+        ht = game.get("home_team")
+        at = game.get("away_team")
+
+        if not ht or not at:
+            continue
+
+        # Match using FULL team names
+        if full_home in (ht, at) or full_away in (ht, at):
             bookmakers = game.get("bookmakers", [])
             if not bookmakers:
                 continue
@@ -118,14 +175,11 @@ def get_live_spread(matchup):
 
     return None
 
-
 def get_pregame_spreads():
     return _pregame_spreads
 
-
 def mark_game_processed(matchup):
     _processed_games.add(matchup)
-
 
 def is_game_processed(matchup):
     return matchup in _processed_games
