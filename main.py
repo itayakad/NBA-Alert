@@ -41,6 +41,7 @@ if __name__ == "__main__":
         try:
             print(f"[{datetime.now().strftime('%H:%M:%S')}] Checking game updates...")
             games = get_live_games()
+            print(f"Found {len(games)} live games.")
 
             for g in games:
                 game_id = g["gameId"]
@@ -50,6 +51,7 @@ if __name__ == "__main__":
                 away_score = g["awayTeam"]["score"]
 
                 # Detect new halftimes
+                print(f"Game {matchup} Status: {status}")
                 if "Halftime" in status and game_id not in processed_games:
                     processed_games.add(game_id)
 
