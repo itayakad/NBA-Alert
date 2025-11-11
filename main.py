@@ -12,7 +12,7 @@ from total_alerts import analyze_total_movement
 
 # --- Logging Setup ---
 os.makedirs("logs", exist_ok=True)
-log_filename = datetime.utcnow().strftime("logs/%Y-%m-%d.log")
+log_filename = datetime.now().strftime("logs/%Y-%m-%d.log")
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(message)s",
