@@ -268,7 +268,8 @@ def get_pregame_totals():
     return _pregame_totals
 
 def mark_game_processed(matchup):
-    _processed_games.add(matchup)
+    if matchup not in _processed_games:
+        _processed_games.add(matchup)
 
 def is_game_processed(matchup):
     return matchup in _processed_games
