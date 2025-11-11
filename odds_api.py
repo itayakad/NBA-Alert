@@ -17,33 +17,50 @@ _processed_games = set()
 REV_TEAM_MAP = {v: k for k, v in TEAM_MAP.items()}
 
 def _load_pregame_cache():
+    """Load pregame spreads/totals from disk and auto-reset if date changed."""
     global _pregame_spreads, _pregame_totals
     _pregame_spreads, _pregame_totals = {}, {}
-    if os.path.exists(PREGAME_FILE):
-        try:
-            with open(PREGAME_FILE, "r") as f:
-                data = json.load(f) or {}
-                _pregame_spreads = data.get("spreads", {}) or {}
-                _pregame_totals  = data.get("totals", {}) or {}
-                print("✅ Loaded pregame lines from disk.")
-        except Exception as e:
-            print(f"⚠️ Failed to load cache: {e}")
-            _pregame_spreads, _pregame_totals = {}, {}
+
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    if not os.path.exists(PREGAME_FILE):
+        return  # Nothing cached yet
+
+    try:
+        with open(PREGAME_FILE, "r") as f:
+            data = json.load(f) or {}
+
+        file_date = data.get("date")
+        if file_date != today:
+            print(f"🧹 Cache is from {file_date}, resetting for {today}...")
+            _save_pregame_cache()  # wipe immediately with new date
+            return
+
+        _pregame_spreads = data.get("spreads", {}) or {}
+        _pregame_totals  = data.get("totals", {}) or {}
+        print("✅ Loaded pregame lines from disk.")
+    except Exception as e:
+        print(f"⚠️ Failed to load cache: {e}")
+        _pregame_spreads, _pregame_totals = {}, {}
+
 
 def _save_pregame_cache():
+    """Save spreads/totals to disk with today's date tag."""
     try:
+        today = datetime.now().strftime("%Y-%m-%d")
         with open(PREGAME_FILE, "w") as f:
             json.dump(
                 {
+                    "date": today,
                     "spreads": _pregame_spreads,
-                    "totals": _pregame_totals
+                    "totals": _pregame_totals,
                 },
                 f,
                 indent=2
             )
-        print("💾 Saved pregame spreads to disk.")
+        print("💾 Saved pregame lines to disk.")
     except Exception as e:
-        print(f"⚠️ Failed to save pregame spreads: {e}")
+        print(f"⚠️ Failed to save pregame lines: {e}")
 
 def _abbr_key(away_name: str, home_name: str) -> str:
     """Return canonical key 'AWY @ HOME' using abbreviations."""
