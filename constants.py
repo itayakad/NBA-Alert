@@ -62,16 +62,16 @@ POINTS_CONFIDENCE_MAP = [
 ]
 
 TOTAL_CONFIDENCE_MAP = [          
-    (0.08, "Fade 🧱"),        
-    (0.12, "Lowkey 👀"),      
-    (0.16, "Tail 🔥"),           
+    (0.05, "Fade 🧱"),        
+    (0.10, "Lowkey 👀"),      
+    (0.15, "Tail 🔥"),           
     (1.01, "🤩🤩")   
 ]
 
 SPREADS_CONFIDENCE_MAP = [
-    (5.0,  "Fade 🧱"),    
-    (8.0,  "Lowkey 👀"),   
-    (12.0, "Tail 🔥"),   
+    (3.0,  "Fade 🧱"),    
+    (6.0,  "Lowkey 👀"),   
+    (9.0, "Tail 🔥"),   
     (999,  "🤩🤩"),       
 ]
 

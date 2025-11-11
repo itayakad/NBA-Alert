@@ -53,7 +53,7 @@ def analyze_spread_movement(game_id, matchup):
     delta = live_spread - pre_spread
     flip = pre_spread < 0 and live_spread > 0 
 
-    if abs(delta) > 3 or flip == True:
+    if abs(delta) >= 3 or flip == True:
         label = confidence_to_label(abs(delta),"SPREAD")
     else:
         return alerts

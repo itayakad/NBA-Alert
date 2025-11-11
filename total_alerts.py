@@ -15,7 +15,7 @@ def analyze_total_movement(game_id, matchup):
 
     delta = live_total - pre_total
     pct_change = abs(delta) / pre_total
-    if pct_change < 0.05:
+    if pct_change >= 0.05:
         label = confidence_to_label(pct_change,"TOTAL")
     else:
         return alerts
