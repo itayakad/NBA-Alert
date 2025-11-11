@@ -9,6 +9,7 @@ from spread_alerts import analyze_spread_movement
 from discord_alert import send_discord_alert
 from espn_api import iter_halftimes
 from total_alerts import analyze_total_movement
+from apikeys import DISCORD_WEBHOOK_URL, NBA_WEBHOOK_URL
 
 # --- Logging Setup ---
 os.makedirs("logs", exist_ok=True)
@@ -81,9 +82,11 @@ if __name__ == "__main__":
     # Send to Discord
     if lines:
         formatted = "\n\n".join(lines)
-        send_discord_alert(formatted, title="🚀 Pregame Lines")
+        send_discord_alert(formatted, DISCORD_WEBHOOK_URL, title="🚀 Pregame Lines")
+        send_discord_alert(formatted, NBA_WEBHOOK_URL, title="🚀 Pregame Lines")
     else:
-        send_discord_alert("⚠️ No pregame lines found.", title="🚀 Pregame Lines")
+        send_discord_alert("⚠️ No pregame lines found.", DISCORD_WEBHOOK_URL, title="🚀 Pregame Lines")
+        send_discord_alert("⚠️ No pregame lines found.", NBA_WEBHOOK_URL, title="🚀 Pregame Lines")
 
     processed_games = set()
 
@@ -125,11 +128,12 @@ if __name__ == "__main__":
                 all_alerts = player_alerts + spread_alerts + total_alerts
                 if all_alerts:
                     alert_text = "\n".join(all_alerts)
-                    send_discord_alert(alert_text, title=f"📊 {matchup} Halftime")
+                    send_discord_alert(alert_text, DISCORD_WEBHOOK_URL, title=f"📊 {matchup} Halftime")
+                    send_discord_alert(alert_text, NBA_WEBHOOK_URL, title=f"📊 {matchup} Halftime")
                     logging.info(f"Halftime Alerts for {matchup}:\n{alert_text}\n")
                 else:
-                    send_discord_alert("❌ Nothing notable.", title=f"📊 {matchup} Halftime")
-
+                    send_discord_alert("❌ Nothing notable.", DISCORD_WEBHOOK_URL, title=f"📊 {matchup} Halftime")
+                    send_discord_alert("❌ Nothing notable.", NBA_WEBHOOK_URL, title=f"📊 {matchup} Halftime")
         except Exception as e:
             print(f"❌ Error in main loop: {e}")
 

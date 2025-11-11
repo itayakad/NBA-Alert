@@ -1,7 +1,7 @@
 import requests
 from apikeys import DISCORD_WEBHOOK_URL
 
-def send_discord_alert(message, title="🏀 NBA Alert"):
+def send_discord_alert(message, webhook, title="🏀 NBA Alert"):
     """Send a message to your Discord channel via webhook."""
     payload = {
         "embeds": [
@@ -13,7 +13,7 @@ def send_discord_alert(message, title="🏀 NBA Alert"):
         ]
     }
     try:
-        r = requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=5)
+        r = requests.post(webhook, json=payload, timeout=5)
         r.raise_for_status()
         print("✅ Discord alert sent.")
     except Exception as e:
