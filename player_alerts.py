@@ -11,7 +11,6 @@ from constants import (
     confidence_to_label,
 )
 from espn_api import fetch_boxscore_players
-from odds_api import mark_game_processed
 
 def normalize_name(name: str) -> str:
     """
@@ -149,5 +148,4 @@ def analyze_game_players(event_id: str, matchup: str, top_scorers: Dict[str, Dic
         if tag:
             conf_label = confidence_to_label(conf,"POINTS")
             alerts.append(f"{tag} {name}: {pts} pts in {minutes} min (season avg {avg_ppg:.1f})\nScoey's Take: {conf_label}")
-            mark_game_processed(abbr_key)
     return alerts

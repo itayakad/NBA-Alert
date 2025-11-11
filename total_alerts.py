@@ -1,5 +1,5 @@
 from datetime import datetime
-from odds_api import get_live_total, get_pregame_totals, mark_game_processed
+from odds_api import get_live_total, get_pregame_totals
 from constants import confidence_to_label
 
 
@@ -28,6 +28,5 @@ def analyze_total_movement(game_id, matchup):
     msg = (
         f"{tag}: Total moved {direction} {delta:+.1f} pts (Pre: {pre_total:.1f}, Live: {live_total:.1f})\nScoey's Take: {label}"
     )
-    mark_game_processed(abbr_key)
     alerts.append(msg)
     return alerts
