@@ -27,5 +27,5 @@ apikeys.py
 *.bak
 *.tmp
 
-# Spread storage
-pregame_spreads.json
+# Lines storage
+pregame_lines.json

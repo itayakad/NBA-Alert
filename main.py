@@ -2,7 +2,7 @@ import time
 from datetime import datetime
 import os
 import logging
-from odds_api import record_pre_game_spreads, get_pregame_spreads, record_pre_game_totals
+from odds_api import record_pre_game_spreads, get_pregame_spreads, record_pre_game_totals, REV_TEAM_MAP
 from constants import HALFTIME_CHECK_INTERVAL
 from player_alerts import get_top_scorers, analyze_game_players
 from spread_alerts import analyze_spread_movement
@@ -35,18 +35,55 @@ if __name__ == "__main__":
 
     # Refresh local copy after update
     pregame_spreads = get_pregame_spreads()
+    pregame_totals = record_pre_game_totals()
 
-    if pregame_spreads:
-        lines = [
-            f"{matchup} ({spread:+.1f})"
-            for matchup, spread in pregame_spreads.items()
-            # Only include full names (abbr is always 3 letters)
-            if "@" in matchup and not matchup.split()[0].isupper()
-        ]
-        formatted_msg = "\n".join(lines)
-        send_discord_alert(formatted_msg, title="🚀 Pregame Spreads")
+    spread_map = pregame_spreads
+    total_map = pregame_totals
+
+    lines = []
+    seen = set()
+
+    for matchup in spread_map.keys() | total_map.keys():
+        if "@" not in matchup:
+            continue
+        if matchup.split()[0].isupper():  # skip abbrev keys like "UTA @ IND"
+            continue
+        if matchup in seen:
+            continue
+
+        seen.add(matchup)
+
+        # Full matchup (e.g. "Indiana Pacers @ Utah Jazz")
+        full_line = matchup  
+
+        # Abbrev "IND @ UTA"
+        away_full, _, home_full = matchup.partition(" @ ")
+        away_abbr = REV_TEAM_MAP.get(away_full, away_full)
+        home_abbr = REV_TEAM_MAP.get(home_full, home_full)
+        abbr = f"{away_abbr} @ {home_abbr}"
+
+        spread = spread_map.get(matchup)
+        total = total_map.get(matchup)
+
+        # Second line formatting
+        parts = []
+        if spread is not None:
+            parts.append(f"{home_abbr} {spread:+.1f}")  # Home spread like UTA +2.5
+        if total is not None:
+            parts.append(f"Total {total:.1f}")
+
+        second_line = " | ".join(parts)
+
+        # Final two-line block
+        lines.append(f"{full_line}\n{second_line}")
+        
+
+    # Send to Discord
+    if lines:
+        formatted = "\n\n".join(lines)
+        send_discord_alert(formatted, title="🚀 Pregame Lines")
     else:
-        send_discord_alert("⚠️ No pregame spreads found.", title="🚀 Pregame Spreads")
+        send_discord_alert("⚠️ No pregame lines found.", title="🚀 Pregame Lines")
 
     processed_games = set()
 

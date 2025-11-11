@@ -6,10 +6,10 @@ from constants import TEAM_MAP
 import json
 import os
 
-PREGAME_FILE = "pregame_spreads.json"
+PREGAME_FILE = "pregame_lines.json"
 CACHE_TTL = 300  # seconds
 
-_cache = {"timestamp": 0, "data": []}
+_cache = {}  # key: market_type -> {"timestamp": float, "data": list}
 _pregame_spreads = {}
 _pregame_totals = {}
 _processed_games = set()
@@ -17,16 +17,18 @@ _processed_games = set()
 REV_TEAM_MAP = {v: k for k, v in TEAM_MAP.items()}
 
 def _load_pregame_cache():
-    global _pregame_spreads
+    global _pregame_spreads, _pregame_totals
+    _pregame_spreads, _pregame_totals = {}, {}
     if os.path.exists(PREGAME_FILE):
         try:
             with open(PREGAME_FILE, "r") as f:
-                data = json.load(f)
-                _pregame_spreads = data.get("spreads", {})
-                _pregame_totals = data.get("totals", {})
+                data = json.load(f) or {}
+                _pregame_spreads = data.get("spreads", {}) or {}
+                _pregame_totals  = data.get("totals", {}) or {}
                 print("✅ Loaded pregame lines from disk.")
-        except:
-            _pregame_spreads = {}
+        except Exception as e:
+            print(f"⚠️ Failed to load cache: {e}")
+            _pregame_spreads, _pregame_totals = {}, {}
 
 def _save_pregame_cache():
     try:
@@ -50,11 +52,11 @@ def _abbr_key(away_name: str, home_name: str) -> str:
     return f"{away_abbr} @ {home_abbr}"
 
 def _fetch_odds_data(market_type="spreads"):
-    """Fetch NBA odds data from The Odds API, with simple caching."""
-    global _cache
-
-    if time.time() - _cache["timestamp"] < CACHE_TTL and _cache["data"]:
-        return _cache["data"]
+    """Fetch NBA odds data from The Odds API, cached per market_type."""
+    now_ts = time.time()
+    entry = _cache.get(market_type)
+    if entry and (now_ts - entry["timestamp"] < CACHE_TTL) and entry["data"]:
+        return entry["data"]
 
     try:
         params = {
@@ -66,12 +68,12 @@ def _fetch_odds_data(market_type="spreads"):
         response = requests.get(ODDS_URL, params=params, timeout=10)
         response.raise_for_status()
         data = response.json()
-        _cache = {"timestamp": time.time(), "data": data}
+        _cache[market_type] = {"timestamp": now_ts, "data": data}
         return data
     except Exception as e:
-        print(f"⚠️ Error fetching odds: {e}")
+        print(f"⚠️ Error fetching odds for market '{market_type}': {e}")
         return []
-
+    
 # Spread
 def _find_team_spread(team_abbr, outcomes):
     """Find spread value by matching full team names."""
@@ -199,6 +201,7 @@ def record_pre_game_totals():
             count += 1
 
     print(f"✅ Recorded {count} pregame TOTALS for {start_window:%Y-%m-%d}.")
+    _save_pregame_cache()
     return _pregame_totals
 
 # Live
