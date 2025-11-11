@@ -53,3 +53,16 @@ TEAM_MAP = {
     "UTA": "Utah Jazz",
     "WAS": "Washington Wizards",
 }
+
+CONFIDENCE_EMOJI_MAP = [
+    (0.30, "Fade 🧱"),
+    (0.50, "Lowkey 👀"),
+    (0.60, "Tail 🔥"),
+    (1.01, "🤩🤩"),
+]
+
+def confidence_to_label(conf):
+    for threshold, label in CONFIDENCE_EMOJI_MAP:
+        if conf <= threshold:
+            return label
+    return "🟦 UNKNOWN"

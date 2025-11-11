@@ -8,6 +8,7 @@ from constants import (
     EXPECTED_LEAGUE_LEADER_PPG,
     EXPECTED_HALF_FGA,
     SEASON,
+    confidence_to_label,
 )
 from espn_api import fetch_boxscore_players
 
@@ -136,13 +137,16 @@ def analyze_game_players(event_id: str, matchup: str, top_scorers: Dict[str, Dic
         ppg_weight = top_scorers[nba_id]["ppg_weight"]
 
         # Underperforming at halftime
-        if pts < 0.5 * avg_ppg:
-            conf = compute_confidence(
-                pts, avg_ppg, min_float, fga, home_score, away_score, ppg_weight
-            )
-            msg = (
-                f"📈 {name}: {pts} pts in {minutes} min (season avg {avg_ppg:.1f}) | Confidence: {conf}"
-            )
-            alerts.append(msg)
+        conf = compute_confidence(pts, avg_ppg, min_float, fga, home_score, away_score, ppg_weight)
+        pace = pts / avg_ppg
+        if pace < 0.40:
+            tag = "😴💤"
+        elif pace < 0.50:
+            tag = "🥱"
+        else:
+            tag = None
+        if tag:
+            conf_label = confidence_to_label(conf)
+            alerts.append(f"{tag} {name}: {pts} pts in {minutes} min (season avg {avg_ppg:.1f}) | Scoey's Take: {conf_label}")
 
     return alerts
