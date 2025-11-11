@@ -11,6 +11,7 @@ CACHE_TTL = 300  # seconds
 
 _cache = {"timestamp": 0, "data": []}
 _pregame_spreads = {}
+_pregame_totals = {}
 _processed_games = set()
 
 REV_TEAM_MAP = {v: k for k, v in TEAM_MAP.items()}
@@ -20,15 +21,24 @@ def _load_pregame_cache():
     if os.path.exists(PREGAME_FILE):
         try:
             with open(PREGAME_FILE, "r") as f:
-                _pregame_spreads = json.load(f)
-                print("✅ Loaded pregame spreads from disk.")
+                data = json.load(f)
+                _pregame_spreads = data.get("spreads", {})
+                _pregame_totals = data.get("totals", {})
+                print("✅ Loaded pregame lines from disk.")
         except:
             _pregame_spreads = {}
 
 def _save_pregame_cache():
     try:
         with open(PREGAME_FILE, "w") as f:
-            json.dump(_pregame_spreads, f, indent=2)
+            json.dump(
+                {
+                    "spreads": _pregame_spreads,
+                    "totals": _pregame_totals
+                },
+                f,
+                indent=2
+            )
         print("💾 Saved pregame spreads to disk.")
     except Exception as e:
         print(f"⚠️ Failed to save pregame spreads: {e}")
@@ -141,6 +151,56 @@ def record_pre_game_spreads():
     _save_pregame_cache()
     return _pregame_spreads
 
+def record_pre_game_totals():
+    global _pregame_totals
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+
+    data = _fetch_odds_data(market_type="totals")
+    count = 0
+
+    now = datetime.now(timezone.utc)
+    start_window = now.replace(hour=17, minute=0, second=0, microsecond=0)
+    if now.hour < 5:
+        start_window -= timedelta(days=1)
+    end_window = start_window + timedelta(hours=12)
+
+    for game in data:
+        commence_time = game.get("commence_time")
+        if not commence_time:
+            continue
+
+        game_dt = datetime.fromisoformat(commence_time.replace("Z", "+00:00"))
+        if not (start_window <= game_dt <= end_window):
+            continue
+
+        home = game.get("home_team")
+        away = game.get("away_team")
+
+        full_key = f"{away} @ {home}"
+        abbr_key = _abbr_key(away, home)
+
+        if full_key in _pregame_totals or abbr_key in _pregame_totals:
+            continue
+
+        bookmakers = game.get("bookmakers", [])
+        if not bookmakers:
+            continue
+
+        market = next((m for m in bookmakers[0]["markets"] if m["key"] == "totals"), None)
+        if not market:
+            continue
+
+        outcomes = {o["name"]: o.get("point") for o in market["outcomes"]}
+        total = outcomes.get("Over") or outcomes.get("Under")
+
+        if total:
+            _pregame_totals[full_key] = total
+            _pregame_totals[abbr_key] = total
+            count += 1
+
+    print(f"✅ Recorded {count} pregame TOTALS for {start_window:%Y-%m-%d}.")
+    return _pregame_totals
+
 # Live
 def get_live_spread(matchup):
     """
@@ -175,8 +235,37 @@ def get_live_spread(matchup):
 
     return None
 
+def get_live_total(matchup):
+    data = _fetch_odds_data(market_type="totals")
+
+    away_abbr, _, home_abbr = matchup.partition(" @ ")
+    full_home = TEAM_MAP.get(home_abbr, home_abbr)
+    full_away = TEAM_MAP.get(away_abbr, away_abbr)
+
+    for game in data:
+        ht = game.get("home_team")
+        at = game.get("away_team")
+        if full_home not in (ht, at) and full_away not in (ht, at):
+            continue
+
+        bookmakers = game.get("bookmakers", [])
+        if not bookmakers:
+            continue
+
+        market = next((m for m in bookmakers[0]["markets"] if m["key"] == "totals"), None)
+        if not market:
+            continue
+
+        outcomes = {o["name"]: o.get("point") for o in market["outcomes"]}
+        return outcomes.get("Over") or outcomes.get("Under")
+
+    return None
+
 def get_pregame_spreads():
     return _pregame_spreads
+
+def get_pregame_totals():
+    return _pregame_totals
 
 def mark_game_processed(matchup):
     _processed_games.add(matchup)

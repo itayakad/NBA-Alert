@@ -54,15 +54,35 @@ TEAM_MAP = {
     "WAS": "Washington Wizards",
 }
 
-CONFIDENCE_EMOJI_MAP = [
+POINTS_CONFIDENCE_MAP = [
     (0.30, "Fade 🧱"),
     (0.50, "Lowkey 👀"),
     (0.60, "Tail 🔥"),
     (1.01, "🤩🤩"),
 ]
 
-def confidence_to_label(conf):
-    for threshold, label in CONFIDENCE_EMOJI_MAP:
+TOTAL_CONFIDENCE_MAP = [          
+    (0.08, "Fade 🧱"),        
+    (0.12, "Lowkey 👀"),      
+    (0.16, "Tail 🔥"),           
+    (1.01, "🤩🤩")   
+]
+
+SPREADS_CONFIDENCE_MAP = [
+    (5.0,  "Fade 🧱"),    
+    (8.0,  "Lowkey 👀"),   
+    (12.0, "Tail 🔥"),   
+    (999,  "🤩🤩"),       
+]
+
+def confidence_to_label(conf,alert_type):
+    if alert_type=="TOTAL":
+        map = TOTAL_CONFIDENCE_MAP
+    elif alert_type=="SPREAD":
+        map = SPREADS_CONFIDENCE_MAP
+    if alert_type=="POINTS":
+        map = POINTS_CONFIDENCE_MAP
+    for threshold, label in map:
         if conf <= threshold:
             return label
     return "🟦 UNKNOWN"

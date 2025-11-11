@@ -5,7 +5,7 @@ from odds_api import (
     is_game_processed,
     mark_game_processed,
 )
-from constants import TEAM_MAP
+from constants import TEAM_MAP, confidence_to_label
 
 # Reverse mapping to convert full name -> abbr
 REV_TEAM_MAP = {v: k for k, v in TEAM_MAP.items()}
@@ -51,16 +51,17 @@ def analyze_spread_movement(game_id, matchup):
         return alerts  # no alert if no baseline
 
     delta = live_spread - pre_spread
-    now = datetime.now().strftime("%H:%M:%S")
+    flip = pre_spread < 0 and live_spread > 0 
 
-    flip = pre_spread < 0 and live_spread > 0
-    significant = abs(delta) >= 3 or flip
+    if abs(delta) > 3 or flip == True:
+        label = confidence_to_label(abs(delta),"SPREAD")
+    else:
+        return alerts
 
-    if significant:
-        team_status = "🚨 UPSET WATCH" if flip else "⚠️ Spread Shift"
-        alerts.append(
-            f"{team_status}: Spread changed by {delta:+.1f} pts (Pre: {pre_spread:+.1f}, Live: {live_spread:+.1f} {abbr_key[-3:]})"
-        )
-        mark_game_processed(abbr_key)
+    team_status = "🤯 UPSET WATCH" if flip else "⚠️ Spread Shift"
+    alerts.append(
+        f"{team_status}: Spread changed by {delta:+.1f} pts (Pre: {pre_spread:+.1f}, Live: {live_spread:+.1f})\nScoey's Take: {label}"
+    )
+    mark_game_processed(abbr_key)
 
     return alerts
