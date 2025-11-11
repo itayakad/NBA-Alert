@@ -140,13 +140,13 @@ def analyze_game_players(event_id: str, matchup: str, top_scorers: Dict[str, Dic
         conf = compute_confidence(pts, avg_ppg, min_float, fga, home_score, away_score, ppg_weight)
         pace = pts / avg_ppg
         if pace < 0.40:
-            tag = "😴💤"
+            tag = "🚨"
         elif pace < 0.50:
-            tag = "🥱"
+            tag = "❗"
         else:
             tag = None
         if tag:
-            conf_label = confidence_to_label(conf)
-            alerts.append(f"{tag} {name}: {pts} pts in {minutes} min (season avg {avg_ppg:.1f}) | Scoey's Take: {conf_label}")
+            conf_label = confidence_to_label(conf,"POINTS")
+            alerts.append(f"{tag} {name}: {pts} pts in {minutes} min (season avg {avg_ppg:.1f})\nScoey's Take: {conf_label}")
 
     return alerts

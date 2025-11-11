@@ -2,12 +2,13 @@ import time
 from datetime import datetime
 import os
 import logging
-from odds_api import record_pre_game_spreads, get_pregame_spreads
+from odds_api import record_pre_game_spreads, get_pregame_spreads, record_pre_game_totals
 from constants import HALFTIME_CHECK_INTERVAL
 from player_alerts import get_top_scorers, analyze_game_players
 from spread_alerts import analyze_spread_movement
 from discord_alert import send_discord_alert
 from espn_api import iter_halftimes
+from total_alerts import analyze_total_movement
 
 # --- Logging Setup ---
 os.makedirs("logs", exist_ok=True)
@@ -25,8 +26,9 @@ if __name__ == "__main__":
     # ESPN-only: get_top_scorers no longer uses nba_api
     top_scorers = get_top_scorers()
 
-    # Load previous day/today cached spreads first
+    # Load previous day/today cached lines first
     pregame_spreads = get_pregame_spreads()
+    pregame_totals = record_pre_game_totals()
 
     # Then attempt to fill in missing ones (but this will NOT overwrite old ones now)
     record_pre_game_spreads()
@@ -79,11 +81,11 @@ if __name__ == "__main__":
                     away_score
                 )
 
-                # Spread Alerts
                 spread_alerts = analyze_spread_movement(event_id, matchup)
+                total_alerts = analyze_total_movement(event_id, matchup)
 
                 # Combined Alerts
-                all_alerts = player_alerts + spread_alerts
+                all_alerts = player_alerts + spread_alerts + total_alerts
                 if all_alerts:
                     alert_text = "\n".join(all_alerts)
                     send_discord_alert(alert_text, title=f"📊 {matchup} Halftime")
