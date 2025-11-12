@@ -15,9 +15,6 @@ env/
 .vscode/
 .DS_Store
 
-# Logs / Outputs
-logs/*.log
-
 # Secrets
 apikeys.py
 .env

@@ -53,3 +53,15 @@ jobs:
       - name: Send daily log
         if: github.event.schedule == '0 8 * * *'
         run: python log_alerts.py
+
+      - name: Print timezone diagnostics
+        run: |
+          echo "🕓 System timezone info:"
+          date
+          echo ""
+          echo "🕓 UTC time:"
+          date -u
+          echo ""
+          echo "🕓 New York time:"
+          TZ=America/New_York date
+
