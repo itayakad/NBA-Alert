@@ -1,19 +1,13 @@
-name: NBA Alerts Automation
+name: NBA Halftime Checker
 
 on:
   schedule:
-    # 6:00 PM ET → pregame setup
-    - cron: "5 23 * * *"
-    # Every 5 minutes from 6 PM–11 PM ET (23:00–03:00 UTC)
-    - cron: "*/5 23-23 * * *"
-    # Every 5 minutes from 12 AM–2 AM ET (00:00–07:00 UTC)
-    - cron: "*/5 0-6 * * *"
-    # 3:00 AM ET → send daily log summary
-    - cron: "0 8 * * *"
+    - cron: "5/5 23 * * *"  # 6 PM–7 PM ET
+    - cron: "5/5 0-6 * * *" # 7 PM–2 AM ET
   workflow_dispatch:
 
 jobs:
-  nba-alerts:
+  halftime:
     runs-on: ubuntu-latest
     environment: production
 
@@ -25,6 +19,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
       - name: Install dependencies
         run: |
@@ -39,17 +41,5 @@ jobs:
           echo "ODDS_API_KEY=${{ secrets.ODDS_API_KEY }}" >> $GITHUB_ENV
           echo "ODDS_URL=${{ secrets.ODDS_URL }}" >> $GITHUB_ENV
 
-      # 🕕 Pregame setup
-      - name: Run pregame setup
-        if: github.event.schedule == '0 23 * * *'
-        run: python pregame_setup.py
-
-      # 🕘 Halftime checks
-      - name: Check halftimes
-        if: github.event.schedule == '*/5 23-7 * * *'
+      - name: Run halftime checker
         run: python check_halftimes_once.py
-
-      # 🕒 Daily log summary
-      - name: Send daily log
-        if: github.event.schedule == '0 8 * * *'
-        run: python log_alerts.py
