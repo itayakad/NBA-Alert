@@ -1,5 +1,6 @@
 from typing import Dict, List
-from nba_api.stats.endpoints import leaguedashplayerstats
+from typing import Dict, List
+import requests
 from constants import (
     TOP_SCORER_LIMIT,
     MIN_MINUTES_FOR_VALID_SAMPLE,
@@ -13,12 +14,6 @@ from constants import (
 from espn_api import fetch_boxscore_players
 
 def normalize_name(name: str) -> str:
-    """
-    Loose normalization to match ESPN displayName to NBA API PLAYER_NAME.
-    Removes punctuation, spaces, lowercase everything.
-    E.g. "P.J. Washington" → "pjwashington"
-         "D'Angelo Russell" → "dangelorussell"
-    """
     return (
         name.lower()
             .replace(".", "")
@@ -31,42 +26,73 @@ def normalize_name(name: str) -> str:
 NAME_TO_NBA_ID = {}
 NBA_ID_TO_STATS = {}
 
+BALD_URL = "https://api.balldontlie.io/v1"
+BALD_SEASON = 2025   # maps to 2025-26 season
+
 def get_top_scorers(limit=TOP_SCORER_LIMIT) -> Dict[str, Dict]:
     """
-    Pulls league-wide season PPG from nba_api.
-    Builds a normalized name -> NBA_ID table for ESPN matching.
-    Stores PPG + weighting so halftime alerts know expected scoring.
+    Loads league-wide top scorers using balldontlie season averages.
+    Builds:
+        NAME_TO_NBA_ID
+        NBA_ID_TO_STATS
+    Returns dict of top scorers keyed by fake NBA_ID strings for compatibility.
     """
+
+    print("📊 Fetching top scorers from balldontlie...")
+
+    # Step 1 — Get all players
+    players = []
+    page = 1
+    while True:
+        r = requests.get(f"{BALD_URL}/players", params={"page": page, "per_page": 100}, timeout=10)
+        data = r.json()
+        players.extend(data["data"])
+        if data["meta"]["next_page"] is None:
+            break
+        page += 1
+
+    # Step 2 — Get season averages for all players
+    player_ids = [p["id"] for p in players]
+    averages = {}
+
+    for i in range(0, len(player_ids), 25):
+        batch = player_ids[i:i+25]
+        r = requests.get(
+            f"{BALD_URL}/season_averages",
+            params=[("player_ids[]", pid) for pid in batch] + [("season", BALD_SEASON)],
+            timeout=10
+        )
+        for stat in r.json().get("data", []):
+            pid = stat["player_id"]
+            averages[pid] = stat.get("pts", 0.0)
+
+    # Step 3 — Build stats tables
     global NAME_TO_NBA_ID, NBA_ID_TO_STATS
+    NAME_TO_NBA_ID = {}
+    NBA_ID_TO_STATS = {}
 
-    stats = leaguedashplayerstats.LeagueDashPlayerStats(
-        season=SEASON,
-        per_mode_detailed="PerGame"
-    ).get_data_frames()[0]
+    for p in players:
+        pid = str(p["id"])
+        name = f"{p['first_name']} {p['last_name']}"
+        ppg = float(averages.get(p["id"], 0.0))
 
-    NAME_TO_NBA_ID = {
-        normalize_name(row["PLAYER_NAME"]): str(row["PLAYER_ID"])
-        for _, row in stats.iterrows()
-    }
-
-    NBA_ID_TO_STATS = {
-        str(row["PLAYER_ID"]): {
-            "name": row["PLAYER_NAME"],
-            "ppg": float(row["PTS"]),
-            "ppg_weight": float(row["PTS"]) / EXPECTED_LEAGUE_LEADER_PPG,
+        NAME_TO_NBA_ID[normalize_name(name)] = pid
+        NBA_ID_TO_STATS[pid] = {
+            "name": name,
+            "ppg": ppg,
+            "ppg_weight": ppg / EXPECTED_LEAGUE_LEADER_PPG if ppg else 0.0,
         }
-        for _, row in stats.iterrows()
-    }
 
-    # Select top N scorers
-    top_players = stats.sort_values("PTS", ascending=False).head(limit)
+    # Top scorers sorted by PPG
+    sorted_players = sorted(
+        NBA_ID_TO_STATS.items(),
+        key=lambda x: x[1]["ppg"],
+        reverse=True
+    )[:limit]
 
-    top_scorers = {
-        str(row["PLAYER_ID"]): NBA_ID_TO_STATS[str(row["PLAYER_ID"])]
-        for _, row in top_players.iterrows()
-    }
+    top_scorers = {pid: stat for pid, stat in sorted_players}
 
-    print(f"✅ Loaded top {limit} scorers for {SEASON}.")
+    print(f"✅ Loaded top {limit} scorers (balldontlie).")
     return top_scorers
 
 def compute_confidence(pts, avg_ppg, min_float, fga, home_score, away_score, ppg_weight):
