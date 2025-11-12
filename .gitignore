@@ -16,8 +16,7 @@ env/
 .DS_Store
 
 # Logs / Outputs
-*.log
-logs/
+logs/*.log
 
 # Secrets
 apikeys.py
@@ -26,6 +25,3 @@ apikeys.py
 # OS / Misc
 *.bak
 *.tmp
-
-# Lines storage
-pregame_lines.json
