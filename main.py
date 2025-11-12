@@ -127,7 +127,7 @@ if __name__ == "__main__":
                 # Combined Alerts
                 all_alerts = player_alerts + spread_alerts + total_alerts
                 if all_alerts:
-                    alert_text = "\n".join(all_alerts)
+                    alert_text = "\n\n".join(all_alerts)
                     send_discord_alert(alert_text, DISCORD_WEBHOOK_URL, title=f"📊 {matchup} Halftime")
                     send_discord_alert(alert_text, NBA_WEBHOOK_URL, title=f"📊 {matchup} Halftime")
                     logging.info(f"Halftime Alerts for {matchup}:\n{alert_text}\n")
