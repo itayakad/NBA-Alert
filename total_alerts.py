@@ -15,18 +15,22 @@ def analyze_total_movement(game_id, matchup):
 
     delta = live_total - pre_total
     pct_change = abs(delta) / pre_total
-    if pct_change >= 0.05:
-        label = confidence_to_label(pct_change,"TOTAL")
-    else:
+
+    # Only trigger for ≥5% movement
+    if pct_change < 0.05:
         return alerts
 
-    # Direction emoji
+    label = confidence_to_label(pct_change, "TOTAL")
+
+    # Direction emoji and movement text
     tag = "📈" if delta > 0 else "📉"
     direction = "up" if delta > 0 else "down"
+    recommended_side = "Over" if delta < 0 else "Under"
 
-    # Build alert line (mirrors your player alert format)
     msg = (
-        f"{tag}: Total moved {direction} {abs(delta)} pts (Pre: {pre_total:.1f}, Live: {live_total:.1f})\nScoey's Take: {label}"
+        f"{tag}: Total moved {direction} {abs(delta):.1f} pts "
+        f"(Pre: {pre_total:.1f}, Live: {live_total:.1f})\n"
+        f"Scoey's Take: {label} {recommended_side} {live_total:.1f}"
     )
     alerts.append(msg)
     return alerts

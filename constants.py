@@ -55,24 +55,24 @@ TEAM_MAP = {
 }
 
 POINTS_CONFIDENCE_MAP = [
-    (0.30, "Fade 🧱"),
-    (0.50, "Lowkey 👀"),
-    (0.60, "Tail 🔥"),
-    (1.01, "🤩🤩"),
+    (0.30, "Fade him"),
+    (0.50, "Lowkey coud turn it up"),
+    (0.60, "Get the line while its low"),
+    (1.01, "Hammer the over 🔨🔒"),
 ]
 
 TOTAL_CONFIDENCE_MAP = [          
-    (0.05, "Fade 🧱"),        
-    (0.10, "Lowkey 👀"),      
-    (0.15, "Tail 🔥"),           
-    (1.01, "🤩🤩")   
+    (0.05, "Not worth touching"),        
+    (0.10, "It's worth considering"),      
+    (0.15, "Tail the"),           
+    (1.01, "Hammer the")   
 ]
 
 SPREADS_CONFIDENCE_MAP = [
-    (3.0,  "Fade 🧱"),    
-    (6.0,  "Lowkey 👀"),   
-    (9.0, "Tail 🔥"),   
-    (999,  "🤩🤩"),       
+    (3.0, "Not worth touching"),    
+    (6.0, "Consider taking the cover for"),   
+    (9.0, "Tail the"),   
+    (999, "Hammer the"),       
 ]
 
 def confidence_to_label(conf,alert_type):
@@ -80,7 +80,7 @@ def confidence_to_label(conf,alert_type):
         map = TOTAL_CONFIDENCE_MAP
     elif alert_type=="SPREAD":
         map = SPREADS_CONFIDENCE_MAP
-    if alert_type=="POINTS":
+    else:
         map = POINTS_CONFIDENCE_MAP
     for threshold, label in map:
         if conf <= threshold:
