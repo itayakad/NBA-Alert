@@ -1,0 +1,53 @@
+name: NBA Alerts Automation
+
+on:
+  schedule:
+    # 6:00 PM ET → pregame setup
+    - cron: "0 23 * * *"
+    # Every 5 minutes from 6 PM–2 AM ET → halftime checks
+    - cron: "*/5 23-7 * * *"
+    # 3:00 AM ET → send daily log summary
+    - cron: "0 8 * * *"
+  workflow_dispatch:
+
+jobs:
+  nba-alerts:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Set environment secrets
+        run: |
+          echo "DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}" >> $GITHUB_ENV
+          echo "NBA_WEBHOOK_URL=${{ secrets.NBA_WEBHOOK_URL }}" >> $GITHUB_ENV
+          echo "LOG_BOT_URL=${{ secrets.LOG_BOT_URL }}" >> $GITHUB_ENV
+          echo "ODDS_API_KEY=${{ secrets.ODDS_API_KEY }}" >> $GITHUB_ENV
+          echo "ODDS_URL=${{ secrets.ODDS_URL }}" >> $GITHUB_ENV
+
+      # 🕕 Pregame setup
+      - name: Run pregame setup
+        if: github.event.schedule == '0 23 * * *'
+        run: python pregame_setup.py
+
+      # 🕘 Halftime checks
+      - name: Check halftimes
+        if: github.event.schedule == '*/5 23-7 * * *'
+        run: python check_halftimes_once.py
+
+      # 🕒 Daily log summary
+      - name: Send daily log
+        if: github.event.schedule == '0 8 * * *'
+        run: python log_alerts.py

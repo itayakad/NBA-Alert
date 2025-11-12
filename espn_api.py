@@ -11,17 +11,25 @@ def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 def _espn_dates_for_window(now_utc: Optional[datetime] = None) -> List[str]:
+    """
+    Return the ESPN date(s) to fetch so NBA nights are treated as one continuous window.
+    - Games before 10:00 UTC (≈5 AM ET) still belong to the previous calendar day.
+    - Games after 22:00 UTC (≈5 PM ET) belong to today + tomorrow.
+    """
     now = now_utc or _utc_now()
     today = now.strftime("%Y%m%d")
 
-    if now.hour < 5:
+    # Before 10:00 UTC → previous day's slate still active (late West Coast games)
+    if now.hour < 10:
         yesterday = (now - timedelta(days=1)).strftime("%Y%m%d")
         return [yesterday, today]
 
-    if now.hour >= 17:
+    # After 22:00 UTC → tonight's games begin and can run into tomorrow
+    if now.hour >= 22:
         tomorrow = (now + timedelta(days=1)).strftime("%Y%m%d")
         return [today, tomorrow]
 
+    # Otherwise, normal midday window
     return [today]
 
 # Fetch scoreboard payload
@@ -83,13 +91,20 @@ def _scores(ev: Dict[str, Any]):
 
 
 def _status_fields(ev: Dict[str, Any]):
-    s = (ev.get("status") or {}).get("type") or {}
+    """Safely extract game status info from ESPN event JSON."""
+    status = ev.get("status", {})
+    stype = status.get("type", {}) or {}
+
+    name = stype.get("name") or status.get("name")
+    detail = stype.get("description") or status.get("detail") or ""
+    short = stype.get("shortDetail") or status.get("shortDetail") or ""
+
     return {
-        "status_name": s.get("name"),
-        "status_detail": s.get("description"),
-        "status_short": s.get("shortDetail"),
-        "period": (ev.get("status") or {}).get("period"),
-        "clock": (ev.get("status") or {}).get("displayClock"),
+        "status_name": name,
+        "status_detail": detail,
+        "status_short": short,
+        "period": status.get("period"),
+        "clock": status.get("displayClock"),
     }
 
 # Public: normalized games
@@ -124,6 +139,60 @@ def get_today_games() -> List[Dict[str, Any]]:
         })
     return games
 
+def get_yesterday_games() -> list[dict]:
+    """
+    Fetch all games from yesterday's calendar date (UTC-based) for post-game summaries.
+    Includes abbreviations and scores for final result reporting.
+    """
+    from datetime import datetime, timedelta
+
+    target_date = (datetime.utcnow() - timedelta(days=1)).strftime("%Y%m%d")
+    print(f"📅 Fetching ESPN scoreboard for {target_date} (yesterday UTC)")
+
+    try:
+        data = _fetch_scoreboard(target_date)
+    except Exception as e:
+        print(f"⚠️ ESPN fetch error for {target_date}: {e}")
+        return []
+
+    games = []
+    for ev in data.get("events", []):
+        comps = ev.get("competitions") or []
+        if not comps:
+            continue
+
+        # extract team abbreviations + scores
+        home_abbr = away_abbr = None
+        home_score = away_score = None
+
+        competitors = comps[0].get("competitors", [])
+        for c in competitors:
+            abbr = (c.get("team") or {}).get("abbreviation")
+            score_str = c.get("score")
+            score = int(score_str) if score_str and score_str.isdigit() else None
+
+            if c.get("homeAway") == "home":
+                home_abbr, home_score = abbr, score
+            elif c.get("homeAway") == "away":
+                away_abbr, away_score = abbr, score
+
+        # extract status fields
+        st = _status_fields(ev)
+        status_name = st.get("status_name") or ""
+        status_detail = st.get("status_detail") or ""
+
+        games.append({
+            "game_id": ev.get("id"),
+            "matchup": f"{away_abbr} @ {home_abbr}" if home_abbr and away_abbr else None,
+            "home_abbr": home_abbr,
+            "away_abbr": away_abbr,
+            "home_score": home_score,
+            "away_score": away_score,
+            "status_name": status_name,
+            "status_detail": status_detail,
+        })
+
+    return games
 
 def iter_halftimes():
     # games = get_today_games()
