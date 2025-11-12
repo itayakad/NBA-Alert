@@ -4,8 +4,10 @@ on:
   schedule:
     # 6:00 PM ET → pregame setup
     - cron: "0 23 * * *"
-    # Every 5 minutes from 6 PM–2 AM ET → halftime checks
-    - cron: "*/5 23-7 * * *"
+    # Every 5 minutes from 6 PM–11 PM ET (23:00–03:00 UTC)
+    - cron: "*/5 23-23 * * *"
+    # Every 5 minutes from 12 AM–2 AM ET (00:00–07:00 UTC)
+    - cron: "*/5 0-7 * * *"
     # 3:00 AM ET → send daily log summary
     - cron: "0 8 * * *"
   workflow_dispatch:
