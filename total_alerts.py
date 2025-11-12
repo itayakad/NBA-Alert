@@ -26,7 +26,7 @@ def analyze_total_movement(game_id, matchup):
 
     # Build alert line (mirrors your player alert format)
     msg = (
-        f"{tag}: Total moved {direction} {delta:+.1f} pts (Pre: {pre_total:.1f}, Live: {live_total:.1f})\nScoey's Take: {label}"
+        f"{tag}: Total moved {direction} {abs(delta)} pts (Pre: {pre_total:.1f}, Live: {live_total:.1f})\nScoey's Take: {label}"
     )
     alerts.append(msg)
     return alerts

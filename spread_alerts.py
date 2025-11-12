@@ -58,9 +58,9 @@ def analyze_spread_movement(game_id, matchup):
     else:
         return alerts
 
-    team_status = "🤯 UPSET WATCH" if flip else "⚠️ Spread Shift"
+    team_status = "🚨 UPSET WATCH:" if flip else "↔️"
     alerts.append(
-        f"{team_status}: Spread changed by {delta:+.1f} pts (Pre: {pre_spread:+.1f}, Live: {live_spread:+.1f})\nScoey's Take: {label}"
+        f"{team_status} Spread changed by {delta:+.1f} pts (Pre: {pre_spread:+.1f}, Live: {live_spread:+.1f})\nScoey's Take: {label}"
     )
     mark_game_processed(abbr_key)
 
