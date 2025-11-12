@@ -3,11 +3,11 @@ name: NBA Alerts Automation
 on:
   schedule:
     # 6:00 PM ET → pregame setup
-    - cron: "0 23 * * *"
+    - cron: "5 23 * * *"
     # Every 5 minutes from 6 PM–11 PM ET (23:00–03:00 UTC)
     - cron: "*/5 23-23 * * *"
     # Every 5 minutes from 12 AM–2 AM ET (00:00–07:00 UTC)
-    - cron: "*/5 0-7 * * *"
+    - cron: "*/5 0-6 * * *"
     # 3:00 AM ET → send daily log summary
     - cron: "0 8 * * *"
   workflow_dispatch:
@@ -53,15 +53,3 @@ jobs:
       - name: Send daily log
         if: github.event.schedule == '0 8 * * *'
         run: python log_alerts.py
-
-      - name: Print timezone diagnostics
-        run: |
-          echo "🕓 System timezone info:"
-          date
-          echo ""
-          echo "🕓 UTC time:"
-          date -u
-          echo ""
-          echo "🕓 New York time:"
-          TZ=America/New_York date
-
