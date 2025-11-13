@@ -1,0 +1,19 @@
+{
+  "date": "2025-11-13",
+  "spreads": {
+    "TOR @ CLE": -7.5,
+    "Toronto Raptors @ Cleveland Cavaliers": -7.5,
+    "ATL @ UTA": 2.0,
+    "Atlanta Hawks @ Utah Jazz": 2.0,
+    "IND @ PHX": -4.0,
+    "Indiana Pacers @ Phoenix Suns": -4.0
+  },
+  "totals": {
+    "Toronto Raptors @ Cleveland Cavaliers": 240.5,
+    "TOR @ CLE": 240.5,
+    "Atlanta Hawks @ Utah Jazz": 233.5,
+    "ATL @ UTA": 233.5,
+    "Indiana Pacers @ Phoenix Suns": 232.5,
+    "IND @ PHX": 232.5
+  }
+}

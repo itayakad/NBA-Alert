@@ -1,6 +1,6 @@
 from datetime import datetime
-from odds_api import get_live_total, get_pregame_totals
-from constants import confidence_to_label
+from app.odds_api import get_live_total, get_pregame_totals
+from app.constants import confidence_to_label
 
 
 def analyze_total_movement(matchup):

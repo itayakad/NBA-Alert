@@ -1,9 +1,9 @@
-from odds_api import (
+from app.odds_api import (
     get_live_spread,
     get_pregame_spreads,
     mark_game_processed,
 )
-from constants import TEAM_MAP, confidence_to_label
+from app.constants import TEAM_MAP, confidence_to_label
 
 # Reverse mapping to convert full name -> abbr
 REV_TEAM_MAP = {v: k for k, v in TEAM_MAP.items()}

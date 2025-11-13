@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 
 # Ensure access to project modules
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from keys import LOG_BOT_URL
-from espn_api import get_yesterday_games
+from app.keys import LOG_BOT_URL
+from app.espn_api import get_yesterday_games
 
 def send_discord_message(content: str, title: str):
     """Send nicely formatted log text to Discord."""
@@ -29,7 +29,7 @@ def send_discord_message(content: str, title: str):
 def read_yesterday_log():
     """Read yesterday’s log from the logs/ folder."""
     yesterday_filename = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d.log")
-    log_path = os.path.join("logs", yesterday_filename)
+    log_path = os.path.join("logs/performance_logs", yesterday_filename)
 
     print(f"📄 Reading log file: {yesterday_filename}")
 

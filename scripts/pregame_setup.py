@@ -1,14 +1,21 @@
 # pregame_setup.py
+import json
 import os
 import logging
 from datetime import datetime
-from odds_api import record_pre_game_spreads, get_pregame_spreads, record_pre_game_totals, REV_TEAM_MAP
-from player_alerts import get_top_scorers
-from discord_alert import send_discord_alert
-from keys import DISCORD_WEBHOOK_URL, NBA_WEBHOOK_URL
+from app.odds_api import record_pre_game_spreads, get_pregame_spreads, record_pre_game_totals, REV_TEAM_MAP
+from app.espn_api import get_top_scorers
+from app.discord_alert import send_discord_alert
+from app.keys import DISCORD_WEBHOOK_URL, NBA_WEBHOOK_URL
+
+# Reset processed_games.json daily
+STATE_FILE = "state/processed_games.json"
+with open(STATE_FILE, "w") as f:
+    json.dump({"ids": []}, f, indent=2)
+print("🔄 Reset processed_games.json for a new day.")
 
 # --- Logging Setup ---
-os.makedirs("logs", exist_ok=True)
+os.makedirs("logs/performance_logs", exist_ok=True)
 log_filename = datetime.now().strftime("logs/%Y-%m-%d.log")
 logging.basicConfig(
     level=logging.INFO,

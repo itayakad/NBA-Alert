@@ -1,6 +1,6 @@
 # General runtime
 HALFTIME_CHECK_INTERVAL = 300   # seconds between scoreboard polls
-SEASON = "2025-26"
+SEASON = "2026"
 TOP_SCORER_LIMIT = 50
 
 # Thresholds
