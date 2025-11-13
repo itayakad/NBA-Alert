@@ -22,3 +22,6 @@ apikeys.py
 # OS / Misc
 *.bak
 *.tmp
+
+# Cron
+cron.txt
