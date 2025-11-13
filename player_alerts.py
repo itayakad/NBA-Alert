@@ -26,74 +26,36 @@ def normalize_name(name: str) -> str:
 NAME_TO_NBA_ID = {}
 NBA_ID_TO_STATS = {}
 
-BALD_URL = "https://api.balldontlie.io/v1"
-BALD_SEASON = 2025   # maps to 2025-26 season
+def get_top_scorers(limit=TOP_SCORER_LIMIT):
+    print("📊 Fetching top scorers from ESPN...")
 
-def get_top_scorers(limit=TOP_SCORER_LIMIT) -> Dict[str, Dict]:
-    """
-    Loads league-wide top scorers using balldontlie season averages.
-    Builds:
-        NAME_TO_NBA_ID
-        NBA_ID_TO_STATS
-    Returns dict of top scorers keyed by fake NBA_ID strings for compatibility.
-    """
+    url = "https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/statistics"
+    r = requests.get(url, timeout=10)
+    data = r.json()
 
-    print("📊 Fetching top scorers from balldontlie...")
+    leaders = data["categories"][0]["stats"][0]["athletes"]
+    top = leaders[:limit]
 
-    # Step 1 — Get all players
-    players = []
-    page = 1
-    while True:
-        r = requests.get(f"{BALD_URL}/players", params={"page": page, "per_page": 100}, timeout=10)
-        data = r.json()
-        players.extend(data["data"])
-        if data["meta"]["next_page"] is None:
-            break
-        page += 1
+    # Reset globals
+    NAME_TO_NBA_ID.clear()
+    NBA_ID_TO_STATS.clear()
 
-    # Step 2 — Get season averages for all players
-    player_ids = [p["id"] for p in players]
-    averages = {}
+    for p in top:
+        athlete = p["athlete"]
 
-    for i in range(0, len(player_ids), 25):
-        batch = player_ids[i:i+25]
-        r = requests.get(
-            f"{BALD_URL}/season_averages",
-            params=[("player_ids[]", pid) for pid in batch] + [("season", BALD_SEASON)],
-            timeout=10
-        )
-        for stat in r.json().get("data", []):
-            pid = stat["player_id"]
-            averages[pid] = stat.get("pts", 0.0)
-
-    # Step 3 — Build stats tables
-    global NAME_TO_NBA_ID, NBA_ID_TO_STATS
-    NAME_TO_NBA_ID = {}
-    NBA_ID_TO_STATS = {}
-
-    for p in players:
-        pid = str(p["id"])
-        name = f"{p['first_name']} {p['last_name']}"
-        ppg = float(averages.get(p["id"], 0.0))
+        pid = str(athlete["id"])
+        name = athlete["displayName"]
+        ppg = float(p["value"])
 
         NAME_TO_NBA_ID[normalize_name(name)] = pid
         NBA_ID_TO_STATS[pid] = {
             "name": name,
             "ppg": ppg,
-            "ppg_weight": ppg / EXPECTED_LEAGUE_LEADER_PPG if ppg else 0.0,
+            "ppg_weight": ppg / EXPECTED_LEAGUE_LEADER_PPG
         }
 
-    # Top scorers sorted by PPG
-    sorted_players = sorted(
-        NBA_ID_TO_STATS.items(),
-        key=lambda x: x[1]["ppg"],
-        reverse=True
-    )[:limit]
-
-    top_scorers = {pid: stat for pid, stat in sorted_players}
-
-    print(f"✅ Loaded top {limit} scorers (balldontlie).")
-    return top_scorers
+    print(f"✅ Loaded top {limit} scorers (via ESPN).")
+    return NBA_ID_TO_STATS
 
 def compute_confidence(pts, avg_ppg, min_float, fga, home_score, away_score, ppg_weight):
     expected_half_pts = avg_ppg / 2 if avg_ppg else (EXPECTED_LEAGUE_LEADER_PPG / 2)
