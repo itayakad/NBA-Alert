@@ -56,8 +56,8 @@ else:
 
         # --- Run analyses ---
         player_alerts = analyze_game_players(event_id, matchup, top_scorers, home_score, away_score)
-        spread_alerts = analyze_spread_movement(event_id, matchup)
-        total_alerts = analyze_total_movement(event_id, matchup)
+        spread_alerts = analyze_spread_movement(matchup)
+        total_alerts = analyze_total_movement(matchup)
 
         all_alerts = player_alerts + spread_alerts + total_alerts
 

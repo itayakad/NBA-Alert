@@ -3,7 +3,7 @@ from odds_api import get_live_total, get_pregame_totals
 from constants import confidence_to_label
 
 
-def analyze_total_movement(game_id, matchup):
+def analyze_total_movement(matchup):
     alerts = []
 
     pre_totals = get_pregame_totals()
