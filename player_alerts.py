@@ -1,5 +1,4 @@
 from typing import Dict, List
-from typing import Dict, List
 import requests
 from constants import (
     TOP_SCORER_LIMIT,
@@ -33,7 +32,12 @@ def get_top_scorers(limit=TOP_SCORER_LIMIT):
     r = requests.get(url, timeout=10)
     data = r.json()
 
-    leaders = data["categories"][0]["stats"][0]["athletes"]
+    try:
+        leaders = data["categories"][0]["stats"][0]["athletes"]
+    except Exception:
+        print("⚠️ ESPN top-scorer API changed or unavailable.")
+        return {}
+
     top = leaders[:limit]
 
     # Reset globals
@@ -55,7 +59,10 @@ def get_top_scorers(limit=TOP_SCORER_LIMIT):
         }
 
     print(f"✅ Loaded top {limit} scorers (via ESPN).")
-    return NBA_ID_TO_STATS
+    return {
+    pid: NBA_ID_TO_STATS[pid]
+    for pid in list(NBA_ID_TO_STATS.keys())[:limit]
+}
 
 def compute_confidence(pts, avg_ppg, min_float, fga, home_score, away_score, ppg_weight):
     expected_half_pts = avg_ppg / 2 if avg_ppg else (EXPECTED_LEAGUE_LEADER_PPG / 2)
