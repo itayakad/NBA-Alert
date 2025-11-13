@@ -1,8 +1,8 @@
 import time
 import requests
 from datetime import datetime, timedelta, timezone
-from keys import ODDS_API_KEY, ODDS_URL
-from constants import TEAM_MAP
+from app.keys import ODDS_API_KEY, ODDS_URL
+from app.constants import TEAM_MAP
 import json
 import os
 

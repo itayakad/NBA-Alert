@@ -3,12 +3,12 @@ import json
 import os
 import logging
 from datetime import datetime
-from espn_api import iter_halftimes
-from player_alerts import get_top_scorers, analyze_game_players
-from spread_alerts import analyze_spread_movement
-from total_alerts import analyze_total_movement
-from discord_alert import send_discord_alert
-from keys import DISCORD_WEBHOOK_URL, NBA_WEBHOOK_URL
+from app.espn_api import iter_halftimes
+from app.player_alerts import get_top_scorers, analyze_game_players
+from app.spread_alerts import analyze_spread_movement
+from app.total_alerts import analyze_total_movement
+from app.discord_alert import send_discord_alert
+from app.keys import DISCORD_WEBHOOK_URL, NBA_WEBHOOK_URL
 
 # --- Setup logging ---
 os.makedirs("logs", exist_ok=True)

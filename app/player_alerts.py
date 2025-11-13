@@ -1,6 +1,6 @@
 from typing import Dict, List
 import requests
-from constants import (
+from app.constants import (
     TOP_SCORER_LIMIT,
     MIN_MINUTES_FOR_VALID_SAMPLE,
     CONFIDENCE_WEIGHTS,
@@ -10,7 +10,7 @@ from constants import (
     SEASON,
     confidence_to_label,
 )
-from espn_api import fetch_boxscore_players
+from app.espn_api import fetch_boxscore_players
 
 def normalize_name(name: str) -> str:
     return (

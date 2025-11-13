@@ -2,10 +2,10 @@
 import os
 import logging
 from datetime import datetime
-from odds_api import record_pre_game_spreads, get_pregame_spreads, record_pre_game_totals, REV_TEAM_MAP
-from player_alerts import get_top_scorers
-from discord_alert import send_discord_alert
-from keys import DISCORD_WEBHOOK_URL, NBA_WEBHOOK_URL
+from app.odds_api import record_pre_game_spreads, get_pregame_spreads, record_pre_game_totals, REV_TEAM_MAP
+from app.player_alerts import get_top_scorers
+from app.discord_alert import send_discord_alert
+from app.keys import DISCORD_WEBHOOK_URL, NBA_WEBHOOK_URL
 
 # --- Logging Setup ---
 os.makedirs("logs", exist_ok=True)
