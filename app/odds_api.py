@@ -6,7 +6,7 @@ from app.constants import TEAM_MAP
 import json
 import os
 
-PREGAME_FILE = "pregame_lines.json"
+PREGAME_FILE = "state/pregame_lines.json"
 CACHE_TTL = 300  # seconds
 
 _cache = {}  # key: market_type -> {"timestamp": float, "data": list}

@@ -1,10 +1,15 @@
 from __future__ import annotations
+import json
+import os
 import requests
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Any
 
+from app.constants import EXPECTED_LEAGUE_LEADER_PPG, TOP_SCORER_LIMIT, SEASON
+
 ESPN_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
 SUMMARY_URL_TMPL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event={event_id}"
+TOP_SCORERS_PATH = "state/top_scorers.json"
 
 # Date window helpers (17:00–05:00 UTC)
 def _utc_now() -> datetime:
@@ -195,8 +200,6 @@ def get_yesterday_games() -> list[dict]:
     return games
 
 def iter_halftimes():
-    # games = get_today_games()
-    # return games
     return [
         g for g in get_today_games()
         if g["status_detail"] and "Halftime" in g["status_detail"]
@@ -270,5 +273,59 @@ def fetch_boxscore_players(event_id: str):
                 "minutes": minutes,
                 "fga": fga,
             })
+
+    return out
+
+def normalize_name(name: str) -> str:
+    return (
+        name.lower()
+        .replace(".", "")
+        .replace("'", "")
+        .replace("-", "")
+        .replace(" ", "")
+        .strip()
+    )
+
+def _load_cached_top_scorers():
+    """Load top scorers and normalize file format."""
+    if not os.path.exists(TOP_SCORERS_PATH):
+        return None
+
+    try:
+        with open(TOP_SCORERS_PATH, "r") as f:
+            data = json.load(f)
+    except Exception:
+        return None
+
+    # Case 1: Already in correct format → {"players": [...]}
+    if isinstance(data, dict) and "players" in data:
+        return data
+
+    # Case 2: Raw list → convert to correct format
+    if isinstance(data, list):
+        return {"players": data}
+
+    return None
+
+def get_top_scorers(limit=TOP_SCORER_LIMIT):
+    """
+    Load top scorers from local JSON (state/top_scorers.json).
+    Uses name-normalized keys instead of ESPN/NBA IDs.
+    """
+    data = _load_cached_top_scorers()
+    if not data:
+        print("⚠️ No local top_scorers.json found or file is stale.")
+        return {}
+
+    players = data.get("players", [])
+    out = {}
+
+    for p in players[:limit]:
+        norm = normalize_name(p["name"])
+        out[norm] = {
+            "name": p["name"],
+            "ppg": p["ppg"],
+            "ppg_weight": p["ppg_weight"]
+        }
 
     return out

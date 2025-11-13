@@ -1,68 +1,13 @@
 from typing import Dict, List
-import requests
 from app.constants import (
-    TOP_SCORER_LIMIT,
     MIN_MINUTES_FOR_VALID_SAMPLE,
     CONFIDENCE_WEIGHTS,
     EXPECTED_HALF_MINUTES,
     EXPECTED_LEAGUE_LEADER_PPG,
     EXPECTED_HALF_FGA,
-    SEASON,
     confidence_to_label,
 )
-from app.espn_api import fetch_boxscore_players
-
-def normalize_name(name: str) -> str:
-    return (
-        name.lower()
-            .replace(".", "")
-            .replace("'", "")
-            .replace("-", "")
-            .replace(" ", "")
-            .strip()
-    )
-
-NAME_TO_NBA_ID = {}
-NBA_ID_TO_STATS = {}
-
-def get_top_scorers(limit=TOP_SCORER_LIMIT):
-    print("📊 Fetching top scorers from ESPN...")
-
-    url = "https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/statistics"
-    r = requests.get(url, timeout=10)
-    data = r.json()
-
-    try:
-        leaders = data["categories"][0]["stats"][0]["athletes"]
-    except Exception:
-        print("⚠️ ESPN top-scorer API changed or unavailable.")
-        return {}
-
-    top = leaders[:limit]
-
-    # Reset globals
-    NAME_TO_NBA_ID.clear()
-    NBA_ID_TO_STATS.clear()
-
-    for p in top:
-        athlete = p["athlete"]
-
-        pid = str(athlete["id"])
-        name = athlete["displayName"]
-        ppg = float(p["value"])
-
-        NAME_TO_NBA_ID[normalize_name(name)] = pid
-        NBA_ID_TO_STATS[pid] = {
-            "name": name,
-            "ppg": ppg,
-            "ppg_weight": ppg / EXPECTED_LEAGUE_LEADER_PPG
-        }
-
-    print(f"✅ Loaded top {limit} scorers (via ESPN).")
-    return {
-    pid: NBA_ID_TO_STATS[pid]
-    for pid in list(NBA_ID_TO_STATS.keys())[:limit]
-}
+from app.espn_api import fetch_boxscore_players, normalize_name
 
 def compute_confidence(pts, avg_ppg, min_float, fga, home_score, away_score, ppg_weight):
     expected_half_pts = avg_ppg / 2 if avg_ppg else (EXPECTED_LEAGUE_LEADER_PPG / 2)
@@ -86,7 +31,13 @@ def compute_confidence(pts, avg_ppg, min_float, fga, home_score, away_score, ppg
 
     return round(max(0, min(confidence, 1)), 2)
 
+
 def analyze_game_players(event_id: str, matchup: str, top_scorers: Dict[str, Dict], home_score: int, away_score: int) -> List[str]:
+    """
+    Name-based version:
+    - top_scorers is now a dict: normalized_name -> {"name", "ppg", "ppg_weight"}
+    - We match solely by normalized ESPN name.
+    """
     alerts: List[str] = []
 
     players = fetch_boxscore_players(event_id)
@@ -105,36 +56,40 @@ def analyze_game_players(event_id: str, matchup: str, top_scorers: Dict[str, Dic
         if pts == 0 and minutes == "0:00":
             continue
 
-        # Convert minutes
+        # Convert minutes into float
         try:
             mm, ss = minutes.split(":")
             min_float = int(mm) + int(ss) / 60
         except:
             min_float = 0
 
-        # Discard small-sample garbage time
+        # Discard tiny stints unless scoring >5
         if min_float < MIN_MINUTES_FOR_VALID_SAMPLE and pts < 5:
             continue
 
-        # Map ESPN -> NBA ID via normalized name
+        # Normalize for name-matching
         norm = normalize_name(name)
-        nba_id = NAME_TO_NBA_ID.get(norm)
 
-        if not nba_id:
-            # ESPN name not found in NBA season stats — skip
+        # If name not in top_scorers → skip
+        if norm not in top_scorers:
             continue
 
-        # Only evaluate if this is one of the "top scorers"
-        if nba_id not in top_scorers:
-            continue
+        player_info = top_scorers[norm]
+        avg_ppg = player_info["ppg"]
+        ppg_weight = player_info["ppg_weight"]
 
-        avg_ppg = top_scorers[nba_id]["ppg"]
-        ppg_weight = top_scorers[nba_id]["ppg_weight"]
+        # Compute halftime confidence
+        conf = compute_confidence(
+            pts, avg_ppg, min_float, fga, home_score, away_score, ppg_weight
+        )
+        pace = pts / avg_ppg if avg_ppg > 0 else 0
 
-        # Underperforming at halftime
-        conf = compute_confidence(pts, avg_ppg, min_float, fga, home_score, away_score, ppg_weight)
-        pace = pts / avg_ppg
+        # Underperforming at halftime (< 50% pace)
         if pace < 0.50:
-            conf_label = confidence_to_label(conf,"POINTS")
-            alerts.append(f"🎯 {name}: {pts} pts in {minutes} min (season avg {avg_ppg:.1f})\nScoey's Take: {conf_label}")
+            conf_label = confidence_to_label(conf, "POINTS")
+            alerts.append(
+                f"🎯 {name}: {pts} pts in {minutes} min (season avg {avg_ppg:.1f})\n"
+                f"Scoey's Take: {conf_label}"
+            )
+
     return alerts

@@ -29,7 +29,7 @@ def send_discord_message(content: str, title: str):
 def read_yesterday_log():
     """Read yesterday’s log from the logs/ folder."""
     yesterday_filename = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d.log")
-    log_path = os.path.join("logs", yesterday_filename)
+    log_path = os.path.join("logs/performance_logs", yesterday_filename)
 
     print(f"📄 Reading log file: {yesterday_filename}")
 

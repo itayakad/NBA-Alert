@@ -3,16 +3,19 @@ import json
 import os
 import logging
 from datetime import datetime
-from app.espn_api import iter_halftimes
-from app.player_alerts import get_top_scorers, analyze_game_players
+
+from app.espn_api import iter_halftimes, normalize_name
+from app.player_alerts import analyze_game_players
 from app.spread_alerts import analyze_spread_movement
 from app.total_alerts import analyze_total_movement
 from app.discord_alert import send_discord_alert
 from app.keys import DISCORD_WEBHOOK_URL, NBA_WEBHOOK_URL
 
+TOP_SCORERS_FILE = "state/top_scorers.json"
+
 # --- Setup logging ---
-os.makedirs("logs", exist_ok=True)
-log_filename = datetime.now().strftime("logs/%Y-%m-%d.log")
+os.makedirs("logs/performance_logs", exist_ok=True)
+log_filename = datetime.now().strftime("logs/performance_logs/%Y-%m-%d.log")
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(message)s",
@@ -33,6 +36,30 @@ if os.path.exists(STATE_FILE):
 else:
     processed_games = set()
 
+# --- Load our manually curated top scorers (name-based) ---
+def load_top_scorers_by_name():
+    if not os.path.exists(TOP_SCORERS_FILE):
+        raise FileNotFoundError("❌ Missing state/top_scorers.json. Run pregame_setup first.")
+
+    with open(TOP_SCORERS_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    # In the new format, it's ALWAYS a list
+    players_list = data.get("players", [])
+
+    out = {}
+
+    # Convert list → dict keyed by normalized name
+    for info in players_list:
+        norm = normalize_name(info["name"])
+        out[norm] = {
+            "name": info["name"],
+            "ppg": info["ppg"],
+            "ppg_weight": info["ppg_weight"]
+        }
+
+    return out
+
 # --- Main one-pass logic ---
 print(f"[{datetime.now().strftime('%H:%M:%S')}] Checking halftimes...")
 halftimes = iter_halftimes()
@@ -40,7 +67,9 @@ halftimes = iter_halftimes()
 if not halftimes:
     print("❌ No halftimes right now.")
 else:
-    top_scorers = get_top_scorers()
+    # Load your curated list ONCE
+    top_scorers = load_top_scorers_by_name()
+
     new_games = 0
 
     for g in halftimes:
@@ -81,4 +110,5 @@ else:
 # --- Save updated state ---
 with open(STATE_FILE, "w", encoding="utf-8") as f:
     json.dump({"ids": list(processed_games)}, f, indent=2)
+
 print("💾 State saved. Done.")
