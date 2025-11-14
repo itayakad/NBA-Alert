@@ -25,3 +25,6 @@ apikeys.py
 
 # Cron
 cron.txt
+
+# VM Auto Update
+update_vm.sh

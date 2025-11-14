@@ -1,14 +1,14 @@
-from datetime import datetime
 from app.odds_api import get_live_total, get_pregame_totals
 from app.constants import confidence_to_label
 
 
-def analyze_total_movement(matchup):
+def analyze_total_movement(matchup: str):
     alerts = []
 
+    abbr_key = matchup  # canonical
     pre_totals = get_pregame_totals()
-    pre_total = pre_totals.get(matchup)
-    live_total = get_live_total(matchup)
+    pre_total = pre_totals.get(abbr_key)
+    live_total = get_live_total(abbr_key)
 
     if pre_total is None or live_total is None:
         return alerts
@@ -22,10 +22,13 @@ def analyze_total_movement(matchup):
 
     label = confidence_to_label(pct_change, "TOTAL")
 
-    # Direction emoji and movement text
+    # Movement direction
     tag = "📈" if delta > 0 else "📉"
     direction = "up" if delta > 0 else "down"
-    recommended_side = "Over" if delta < 0 else "Under"
+
+    # If total moves UP → game expected to be lower scoring (bet UNDER)
+    # If total moves DOWN → expect OVER
+    recommended_side = "Under" if delta > 0 else "Over"
 
     msg = (
         f"{tag}: Total moved {direction} {abs(delta):.1f} pts "
