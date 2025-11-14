@@ -32,19 +32,21 @@ def compute_confidence(pts, avg_ppg, min_float, fga, home_score, away_score, ppg
     return round(max(0, min(confidence, 1)), 2)
 
 
-def analyze_game_players(event_id: str, matchup: str, top_scorers: Dict[str, Dict], home_score: int, away_score: int) -> List[str]:
-    """
-    Name-based version:
-    - top_scorers is now a dict: normalized_name -> {"name", "ppg", "ppg_weight"}
-    - We match solely by normalized ESPN name.
-    """
+def analyze_game_players(
+    event_id: str,
+    matchup_abbr: str,
+    top_scorers: Dict[str, Dict],
+    home_score: int,
+    away_score: int
+) -> List[str]:
+    
     alerts: List[str] = []
 
     players = fetch_boxscore_players(event_id)
     if not players:
-        return [f"⚠️ ESPN summary missing for {matchup}"]
+        return [f"⚠️ ESPN summary missing for {matchup_abbr}"]
 
-    print(f"📊 DEBUG: {matchup} — Loaded {len(players)} players from ESPN.")
+    print(f"📊 DEBUG: {matchup_abbr} — Loaded {len(players)} players from ESPN.")
 
     for p in players:
         name = p["name"]
@@ -52,25 +54,24 @@ def analyze_game_players(event_id: str, matchup: str, top_scorers: Dict[str, Dic
         fga = p["fga"]
         minutes = p["minutes"]
 
-        # Skip empty stints
+        # Skip zero-impact stints
         if pts == 0 and minutes == "0:00":
             continue
 
-        # Convert minutes into float
+        # Convert "12:34" into floating minutes
         try:
             mm, ss = minutes.split(":")
             min_float = int(mm) + int(ss) / 60
         except:
             min_float = 0
 
-        # Discard tiny stints unless scoring >5
+        # Skip minimal minutes unless scoring >5
         if min_float < MIN_MINUTES_FOR_VALID_SAMPLE and pts < 5:
             continue
 
-        # Normalize for name-matching
+        # Use normalized name for matching
         norm = normalize_name(name)
 
-        # If name not in top_scorers → skip
         if norm not in top_scorers:
             continue
 
@@ -78,13 +79,13 @@ def analyze_game_players(event_id: str, matchup: str, top_scorers: Dict[str, Dic
         avg_ppg = player_info["ppg"]
         ppg_weight = player_info["ppg_weight"]
 
-        # Compute halftime confidence
+        # Halftime confidence
         conf = compute_confidence(
             pts, avg_ppg, min_float, fga, home_score, away_score, ppg_weight
         )
         pace = pts / avg_ppg if avg_ppg > 0 else 0
 
-        # Underperforming at halftime (< 50% pace)
+        # Trigger only if underperforming (<50% pace)
         if pace < 0.50:
             conf_label = confidence_to_label(conf, "POINTS")
             alerts.append(
