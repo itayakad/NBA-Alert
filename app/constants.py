@@ -1,4 +1,7 @@
 # General runtime
+import random
+
+
 HALFTIME_CHECK_INTERVAL = 300   # seconds between scoreboard polls
 SEASON = "2026"
 TOP_SCORER_LIMIT = 50
@@ -55,34 +58,36 @@ TEAM_MAP = {
 }
 
 POINTS_CONFIDENCE_MAP = [
-    (0.30, "Fade him"),
-    (0.50, "Lowkey coud turn it up"),
-    (0.60, "Get the line while its low"),
-    (1.01, "Hammer the over 🔨🔒"),
+    (0.30, ["Fade him", "Pass on it", "Skip it", "Nah this a guy b bet"]),
+    (0.50, ["Lowkey coud turn it up", "Might be worth a look", "Could be a sneaky play", "Keep an eye on him"]),
+    (0.60, ["Get the line while its low", "Worth a small flyer", "Decent upside here", "Could pay off"]),
+    (1.01, ["Hammer the over","Eitan level bet","Bet the house","All in on this guy"]),
 ]
 
-TOTAL_CONFIDENCE_MAP = [          
-    (0.05, "Not worth touching"),        
-    (0.10, "It's worth considering"),      
-    (0.15, "Tail the"),           
-    (1.01, "Hammer the")   
+TOTAL_CONFIDENCE_MAP = [
+    (0.05, ["Not worth touching the", "Avoid the", "Stay far from the", "Don’t bother with the"]),
+    (0.10, ["It's worth considering the", "You can lean toward the", "Might make sense on the", "There’s a small edge on the"]),
+    (0.15, ["Tail the", "Ride the", "Back the", "Solid angle on the"]),
+    (1.01, ["Hammer the", "Slam the", "Unload on the", "No-brainer on the"]),
 ]
 
 SPREADS_CONFIDENCE_MAP = [
-    (3.0, "Not worth touching"),    
-    (6.0, "Consider taking the cover for"),   
-    (9.0, "Tail the"),   
-    (999, "Hammer the"),       
+    (3.0, ["Not worth touching", "Avoid", "Stay away from", "Don’t bother with"]),
+    (6.0, ["Consider taking", "Worth a look at", "Could back", "I don’t mind"]),
+    (9.0, ["Tail", "Ride", "Back", "Strong value on"]),
+    (999, ["Hammer", "Slam", "Unload on", "Ride or die with"]),
 ]
 
-def confidence_to_label(conf,alert_type):
-    if alert_type=="TOTAL":
+def confidence_to_label(conf, alert_type):
+    if alert_type == "TOTAL":
         map = TOTAL_CONFIDENCE_MAP
-    elif alert_type=="SPREAD":
+    elif alert_type == "SPREAD":
         map = SPREADS_CONFIDENCE_MAP
     else:
         map = POINTS_CONFIDENCE_MAP
+
     for threshold, label in map:
         if conf <= threshold:
-            return label
+            return random.choice(label)
+
     return "🟦 UNKNOWN"
