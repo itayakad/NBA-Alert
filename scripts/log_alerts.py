@@ -4,13 +4,29 @@ import re
 import requests
 from datetime import datetime, timedelta
 
+# Ensure local app package is importable
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 from app.keys import LOG_BOT_URL
 from app.espn_api import (
     get_yesterday_games,
     fetch_boxscore_players,
-    normalize_name
+    normalize_name,
 )
+from app.constants import SPREADS_CONFIDENCE_MAP, TOTAL_CONFIDENCE_MAP, POINTS_CONFIDENCE_MAP
+
+
+def extract_phrases(conf_map):
+    phrases = []
+    for _, plist in conf_map:
+        phrases.extend(plist)
+    return phrases
+
+
+SPREAD_PHRASES = extract_phrases(SPREADS_CONFIDENCE_MAP)
+TOTAL_PHRASES = extract_phrases(TOTAL_CONFIDENCE_MAP)
+PLAYER_PHRASES = extract_phrases(POINTS_CONFIDENCE_MAP)
+
 
 def send_discord_message(content: str, title: str):
     data = {
@@ -27,6 +43,7 @@ def send_discord_message(content: str, title: str):
     except Exception as e:
         print(f"❌ Discord send error: {e}")
 
+
 def read_yesterday_log():
     filename = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d.log")
     path = os.path.join("logs/performance_logs", filename)
@@ -36,6 +53,7 @@ def read_yesterday_log():
 
     with open(path, "r", encoding="utf-8") as f:
         return f.read().strip(), filename
+
 
 def get_final_results_map():
     """Return dict keyed by (AWAY, HOME) with scores and event IDs."""
@@ -49,10 +67,11 @@ def get_final_results_map():
             finals[(away, home)] = {
                 "away": g["away_score"],
                 "home": g["home_score"],
-                "game_id": g["game_id"]
+                "game_id": g["game_id"],
             }
 
     return finals
+
 
 def get_final_boxscores(finals):
     """Load all final boxscores keyed by (AWAY, HOME)."""
@@ -70,6 +89,19 @@ def get_final_boxscores(finals):
         }
 
     return boxscores
+
+
+def build_spread_regex():
+    # Escape regex special characters in phrases
+    escaped = [re.escape(p) for p in SPREAD_PHRASES]
+    phrase_union = "|".join(escaped)
+
+    # Scoey's Take: <phrase> TEAM +/-X.X
+    return re.compile(
+        rf"Scoey's Take:\s*(?:{phrase_union})\s+([A-Z]{{2,3}})\s*([+-]?\d+\.\d+)",
+        re.I,
+    )
+
 
 def evaluate_spread(team, line, away, home, finals):
     if (away, home) not in finals:
@@ -93,17 +125,19 @@ def evaluate_spread(team, line, away, home, finals):
         covered = True
         result = "✔️ Covered"
     elif adjusted == 0:
-        covered = None  # push (shouldn't happen with .5 lines, but safe)
+        covered = None  # push (unlikely with .5 lines)
         result = "➖ Push"
     else:
         covered = False
         result = "❌ Missed"
 
     msg = (
-        f"{result}: Final margin was {margin:+} ({away} {away_score} – {home} {home_score})"
+        f"{result}: Final margin was {margin:+} "
+        f"({away} {away_score} – {home} {home_score})"
     )
 
     return msg, covered
+
 
 def evaluate_total(direction, target, away, home, finals):
     if (away, home) not in finals:
@@ -122,10 +156,12 @@ def evaluate_total(direction, target, away, home, finals):
         result = "✔️ Over hit" if hit else "❌ Over missed"
 
     msg = (
-        f"{result}: Final total was {total} ({away} {away_score} – {home} {home_score})"
+        f"{result}: Final total was {total} "
+        f"({away} {away_score} – {home} {home_score})"
     )
 
     return msg, hit
+
 
 def evaluate_player(player_name, ht_pts, avg, away, home, finals, boxscores):
     key = (away, home)
@@ -139,16 +175,19 @@ def evaluate_player(player_name, ht_pts, avg, away, home, finals, boxscores):
         return f"⚠️ Final stats not found for {player_name}", None
 
     final_pts = lookup[norm]["points"]
-    needed = int(avg*0.85) - 0.5 if avg < 30 else 25.5
+
+    # Your “cover” rule:
+    # - if avg < 30: 85% of avg, rounded to a .5 line
+    # - else: flat 25.5 line
+    needed = int(avg * 0.85) - 0.5 if avg < 30 else 25.5
 
     covered = final_pts >= needed
     result = "✔️ Covered" if covered else "❌ Missed"
 
-    msg = (
-        f"Over {needed} {result}: Final pts {final_pts}"
-    )
+    msg = f"Over {needed} {result}: Final pts {final_pts}"
 
     return msg, covered
+
 
 def main():
     log_content, log_filename = read_yesterday_log()
@@ -158,6 +197,9 @@ def main():
     if not log_content:
         send_discord_message("⚠️ No log file or empty.", title)
         return
+
+    # Build regex once
+    SPREAD_REGEX = build_spread_regex()
 
     # ---- Load finals & boxscores ----
     finals = get_final_results_map()
@@ -184,15 +226,12 @@ def main():
         output.append(f"\n### 🏀 {away} @ {home}")
 
         # ------- Spread -------
-        spread_match = re.search(
-            r"Scoey's Take: .*?(?:Take|back|consider taking)\s+([A-Z]{2,3})\s*([+-]?\d+\.\d+)",
-            block, re.I
-        )
+        spread_match = SPREAD_REGEX.search(block)
         if spread_match:
             team = spread_match.group(1)
             line = float(spread_match.group(2))
             msg, hit = evaluate_spread(team, line, away, home, finals)
-            output.append(f"- **Spread Pick:** {team} {line:+} {msg}")
+            output.append(f"- **Spread Pick:** {team} {line:+} → {msg}")
 
             if hit is True:
                 spread_hits += 1
@@ -200,6 +239,7 @@ def main():
                 spread_misses += 1
 
         # ------- Totals -------
+        # We can still just detect Over/Under directly; phrases don't matter here
         total_match = re.search(r"Under\s+(\d+\.\d+)|Over\s+(\d+\.\d+)", block, re.I)
         if total_match:
             under = total_match.group(1)
@@ -224,14 +264,14 @@ def main():
         # ------- Player -------
         player_match = re.findall(
             r"🎯 ([A-Za-z .'-]+): (\d+) pts.*?avg (\d+\.\d+)",
-            block
+            block,
         )
         for name, pts, avg in player_match:
             pts = int(pts)
             avg = float(avg)
 
             msg, hit = evaluate_player(name, pts, avg, away, home, finals, boxscores)
-            output.append(f"- **Player:** {name} {msg}")
+            output.append(f"- **Player:** {name} → {msg}")
 
             if hit is True:
                 player_hits += 1
@@ -239,7 +279,6 @@ def main():
                 player_misses += 1
 
     # ---- FINAL SUMMARY ----
-
     total_hits_all = spread_hits + total_hits + player_hits
     total_misses_all = spread_misses + total_misses + player_misses
     total_all = total_hits_all + total_misses_all
@@ -263,7 +302,8 @@ def main():
         send_discord_message(final_message, title)
     else:
         for i in range(0, len(final_message), 1900):
-            send_discord_message(final_message[i:i+1900], f"{title} (Part {i//1900+1})")
+            send_discord_message(final_message[i:i + 1900], f"{title} (Part {i // 1900 + 1})")
+
 
 if __name__ == "__main__":
     main()
