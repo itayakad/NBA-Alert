@@ -57,6 +57,17 @@ TEAM_MAP = {
     "WAS": "Washington Wizards",
 }
 
+ESPN_TEAM_MAP = {
+    "NO": "NOP",
+    "GS": "GSW",
+    "PHO": "PHX",
+    "SA": "SAS",
+    "NY": "NYK",
+    "UTA": "UTAH",
+}
+
+REV_ESPN_TEAM_MAP = {v: k for k, v in ESPN_TEAM_MAP.items()}
+
 POINTS_CONFIDENCE_MAP = [
     (0.30, ["Fade him", "Pass on it", "Skip it", "Nah this a guy b bet"]),
     (0.50, ["Lowkey coud turn it up", "Might be worth a look", "Could be a sneaky play", "Keep an eye on him"]),

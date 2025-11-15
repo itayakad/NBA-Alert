@@ -13,8 +13,7 @@ from app.espn_api import (
     fetch_boxscore_players,
     normalize_name,
 )
-from app.constants import SPREADS_CONFIDENCE_MAP, TOTAL_CONFIDENCE_MAP, POINTS_CONFIDENCE_MAP
-
+from app.constants import SPREADS_CONFIDENCE_MAP, TOTAL_CONFIDENCE_MAP, POINTS_CONFIDENCE_MAP, REV_ESPN_TEAM_MAP
 
 def extract_phrases(conf_map):
     phrases = []
@@ -22,11 +21,9 @@ def extract_phrases(conf_map):
         phrases.extend(plist)
     return phrases
 
-
 SPREAD_PHRASES = extract_phrases(SPREADS_CONFIDENCE_MAP)
 TOTAL_PHRASES = extract_phrases(TOTAL_CONFIDENCE_MAP)
 PLAYER_PHRASES = extract_phrases(POINTS_CONFIDENCE_MAP)
-
 
 def send_discord_message(content: str, title: str):
     data = {
@@ -43,7 +40,6 @@ def send_discord_message(content: str, title: str):
     except Exception as e:
         print(f"❌ Discord send error: {e}")
 
-
 def read_yesterday_log():
     filename = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d.log")
     path = os.path.join("logs/performance_logs", filename)
@@ -53,7 +49,14 @@ def read_yesterday_log():
 
     with open(path, "r", encoding="utf-8") as f:
         return f.read().strip(), filename
-
+    
+def normalize_team(t):
+    # t = "NOP" from alert
+    t = t.upper()
+    # convert alert team to ESPN-format if needed
+    if t in REV_ESPN_TEAM_MAP:
+        return REV_ESPN_TEAM_MAP[t]   # "NOP" → "NO"
+    return t
 
 def get_final_results_map():
     """Return dict keyed by (AWAY, HOME) with scores and event IDs."""
@@ -72,7 +75,6 @@ def get_final_results_map():
 
     return finals
 
-
 def get_final_boxscores(finals):
     """Load all final boxscores keyed by (AWAY, HOME)."""
     boxscores = {}
@@ -90,7 +92,6 @@ def get_final_boxscores(finals):
 
     return boxscores
 
-
 def build_spread_regex():
     # Escape regex special characters in phrases
     escaped = [re.escape(p) for p in SPREAD_PHRASES]
@@ -102,8 +103,10 @@ def build_spread_regex():
         re.I,
     )
 
-
 def evaluate_spread(team, line, away, home, finals):
+    away = normalize_team(away)
+    home = normalize_team(home)
+
     if (away, home) not in finals:
         return "⚠️ No final found", None
 
@@ -228,7 +231,7 @@ def main():
         # ------- Spread -------
         spread_match = SPREAD_REGEX.search(block)
         if spread_match:
-            team = spread_match.group(1)
+            team = normalize_team(spread_match.group(1))
             line = float(spread_match.group(2))
             msg, hit = evaluate_spread(team, line, away, home, finals)
             output.append(f"- **Spread Pick:** {team} {line:+} → {msg}")
